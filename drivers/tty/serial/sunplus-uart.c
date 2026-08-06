@@ -549,7 +549,7 @@ static int __init sunplus_console_setup(struct console *co, char *options)
 
 static struct uart_driver sunplus_uart_driver;
 static struct console sunplus_uart_console = {
-	.name		= "ttySUP",
+	.name		= "ttyS",
 	.write		= sunplus_console_write,
 	.device		= uart_console_device,
 	.setup		= sunplus_console_setup,
@@ -566,7 +566,7 @@ static struct console sunplus_uart_console = {
 static struct uart_driver sunplus_uart_driver = {
 	.owner		= THIS_MODULE,
 	.driver_name	= "sunplus_uart",
-	.dev_name	= "ttySUP",
+	.dev_name	= "ttyS",
 	.major		= TTY_MAJOR,
 	.minor		= 64,
 	.nr		= SUP_UART_NR,

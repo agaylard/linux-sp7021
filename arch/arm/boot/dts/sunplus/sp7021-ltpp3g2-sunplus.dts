@@ -18,7 +18,7 @@
 	};
 
 	chosen {
-		bootargs = "console=ttySUP0,115200 earlycon loglevel=8 rootfs=ext4 root=/dev/mmcblk0p2 rootwait";
+		bootargs = "console=ttyS0,115200 earlycon loglevel=8 rootfs=ext4 root=/dev/mmcblk0p2 rootwait";
 		stdout-path = "serial0:115200n8";
 	};
 
