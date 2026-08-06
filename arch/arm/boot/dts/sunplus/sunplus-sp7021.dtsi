@@ -118,10 +118,6 @@
 				groups = "CARD0_EMMC";
 			};
 
-			leds_pins: pinmux-leds-pins {
-				sunplus,pins = < SPPCTL_IOPAD(0,SPPCTL_PCTL_G_GPIO,0,SPPCTL_PCTL_L_OUT) >;
-			};
-
 			sdcard_pins: pinmux-sdcard-pins {
 				function = "SD_CARD";
 				groups = "SD_CARD";
@@ -293,15 +289,4 @@
 		};
 	};
 
-	leds {
-		compatible = "gpio-leds";
-		pinctrl-names = "default";
-		pinctrl-0 = <&leds_pins>;
-		system-led {
-			label = "system-led";
-			gpios = <&pctl 0 GPIO_ACTIVE_HIGH>;
-			default-state = "off";
-			linux,default-trigger = "heartbeat";
-		};
-	};
 };

@@ -27,4 +27,22 @@
 		device_type = "memory";
 		reg = <0x00000000 0x20000000>;
 	};
+
+	leds {
+		compatible = "gpio-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&leds_pins>;
+		system-led {
+			label = "system-led";
+			gpios = <&pctl 0 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+			linux,default-trigger = "heartbeat";
+		};
+	};
+};
+
+&pctl {
+	leds_pins: pinmux-leds-pins {
+		sunplus,pins = < SPPCTL_IOPAD(0,SPPCTL_PCTL_G_GPIO,0,SPPCTL_PCTL_L_OUT) >;
+	};
 };
