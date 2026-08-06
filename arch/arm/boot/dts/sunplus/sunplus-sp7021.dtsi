@@ -164,6 +164,13 @@
 			};
 		};
 
+		wdt: watchdog@630 {
+			compatible = "sunplus,sp7021-wdt";
+			reg = <0x630 0x08>, <0x274 0x04>;
+			clocks = <&clkc CLK_STC0>;
+			resets = <&rstc RST_STC0>;
+		};
+
 		rstc: reset@54 {
 			compatible = "sunplus,sp7021-reset";
 			reg = <0x54 0x28>;
