@@ -13,6 +13,8 @@
 #include <linux/errno.h>
 #include <linux/smp.h>
 
+#include "platsmp.h"
+
 #include <asm/cp15.h>
 #include <asm/smp_plat.h>
 
