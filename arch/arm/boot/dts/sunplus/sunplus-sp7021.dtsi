@@ -121,7 +121,6 @@
 			sdcard_pins: pinmux-sdcard-pins {
 				function = "SD_CARD";
 				groups = "SD_CARD";
-				sunplus,pins = < SPPCTL_IOPAD(91, SPPCTL_PCTL_G_GPIO, 0, 0) >;
 			};
 
 			spi0_pins: pinmux-spi0-pins {

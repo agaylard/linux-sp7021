@@ -45,4 +45,8 @@
 	leds_pins: pinmux-leds-pins {
 		sunplus,pins = < SPPCTL_IOPAD(0,SPPCTL_PCTL_G_GPIO,0,SPPCTL_PCTL_L_OUT) >;
 	};
+
+	sdcard_cd_pins: pinmux-sdcard-cd-pins {
+		sunplus,pins = < SPPCTL_IOPAD(91,SPPCTL_PCTL_G_GPIO,0,0) >;
+	};
 };
