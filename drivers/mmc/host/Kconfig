@@ -23,6 +23,15 @@ config MMC_SUNPLUS
 
 	  If unsure, say N
 
+config MMC_SUNPLUS_SD
+	tristate "Sunplus SP7021 SD Card Controller"
+	depends on ARCH_SUNPLUS || COMPILE_TEST
+	help
+	  If you say yes here, you will get support for the SD card host
+	  interface (CARD1) on Sunplus SP7021 SoCs.
+
+	  If unsure, say N
+
 config MMC_ARMMMCI
 	tristate "ARM AMBA Multimedia Card Interface support"
 	depends on ARM_AMBA

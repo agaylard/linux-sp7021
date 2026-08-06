@@ -239,7 +239,10 @@
 };
 
 &mmc1 {
-	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc1_mux &mmc1_mux_cd>;
+	cd-gpios = <&pctl 0 GPIO_ACTIVE_LOW>;
+	broken-cd;
 };
 
 &spinand0 {
