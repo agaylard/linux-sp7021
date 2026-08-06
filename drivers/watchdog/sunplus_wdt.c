@@ -170,6 +170,9 @@ static int sp_wdt_probe(struct platform_device *pdev)
 	if (IS_ERR(priv->base))
 		return PTR_ERR(priv->base);
 
+	/* Stop any watchdog left running by the bootloader */
+	writel(WDT_STOP, priv->base + WDT_CTRL);
+
 	priv->wdev.info = &sp_wdt_info;
 	priv->wdev.ops = &sp_wdt_ops;
 	priv->wdev.timeout = SP_WDT_DEFAULT_TIMEOUT;
