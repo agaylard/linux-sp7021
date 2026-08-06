@@ -24,6 +24,11 @@
 #define WDT_LOCK		0xAB01
 #define WDT_CONMAX		0xDEAF
 
+/* mo4 misc ctl 0 (G4.29): bit 4 enables STC watchdog timeout to trigger system reset.
+ * Default is 0 (disabled). Uses mask-write format: bits[31:16] are write-enables. */
+#define WDT_MISC_CTL_RST_EN	BIT(4)
+#define WDT_MASK_SET(b)		((b) | ((b) << 16))
+
 /* TIMEOUT_MAX = ffff0/90kHz =11.65, so longer than 11 seconds will time out. */
 #define SP_WDT_MAX_TIMEOUT	11U
 #define SP_WDT_DEFAULT_TIMEOUT	10
@@ -102,6 +107,7 @@ static int sp_wdt_start(struct watchdog_device *wdev)
 	struct sp_wdt_priv *priv = watchdog_get_drvdata(wdev);
 	void __iomem *base = priv->base;
 
+	sp_wdt_ping(wdev);
 	writel(WDT_RESUME, base + WDT_CTRL);
 
 	return 0;
@@ -115,7 +121,7 @@ static unsigned int sp_wdt_get_timeleft(struct watchdog_device *wdev)
 
 	val = readl(base + WDT_CNT);
 	val &= 0xffff;
-	val = val << 4;
+	val = (val << 4) / STC_CLK;
 
 	return val;
 }
@@ -170,13 +176,22 @@ static int sp_wdt_probe(struct platform_device *pdev)
 	if (IS_ERR(priv->base))
 		return PTR_ERR(priv->base);
 
-	/* Stop any watchdog left running by the bootloader */
+	/* Stop watchdog and clear any pending interrupt before enabling system reset. */
 	writel(WDT_STOP, priv->base + WDT_CTRL);
+	writel(WDT_CLRIRQ, priv->base + WDT_CTRL);
+
+	{
+		void __iomem *misc_ctl = devm_platform_ioremap_resource(pdev, 1);
+
+		if (IS_ERR(misc_ctl))
+			return PTR_ERR(misc_ctl);
+		writel(WDT_MASK_SET(WDT_MISC_CTL_RST_EN), misc_ctl);
+	}
 
 	priv->wdev.info = &sp_wdt_info;
 	priv->wdev.ops = &sp_wdt_ops;
 	priv->wdev.timeout = SP_WDT_DEFAULT_TIMEOUT;
-	priv->wdev.max_hw_heartbeat_ms = SP_WDT_MAX_TIMEOUT * 1000;
+	priv->wdev.max_timeout = SP_WDT_MAX_TIMEOUT;
 	priv->wdev.min_timeout = 1;
 	priv->wdev.parent = dev;
 
@@ -186,7 +201,12 @@ static int sp_wdt_probe(struct platform_device *pdev)
 	watchdog_stop_on_reboot(&priv->wdev);
 	watchdog_set_restart_priority(&priv->wdev, 128);
 
-	return devm_watchdog_register_device(dev, &priv->wdev);
+	ret = devm_watchdog_register_device(dev, &priv->wdev);
+	if (ret)
+		return ret;
+
+	dev_info(dev, "watchdog registered, timeout=%ds\n", priv->wdev.timeout);
+	return 0;
 }
 
 static const struct of_device_id sp_wdt_of_match[] = {
