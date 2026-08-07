@@ -163,6 +163,36 @@
 	};
 };
 
+&sp_uphy0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_vbus_usb0>;
+	vbus-gpio = <&pctl 90 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+};
+
+&sp_uphy1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_vbus_usb1>;
+	vbus-gpio = <&pctl 91 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+};
+
+&sp_ehci0 {
+	status = "okay";
+};
+
+&sp_ohci0 {
+	status = "okay";
+};
+
+&sp_ehci1 {
+	status = "okay";
+};
+
+&sp_ohci1 {
+	status = "okay";
+};
+
 &mmc0 {
 	status = "okay";
 };
@@ -192,7 +222,7 @@
 
 &pctl {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pins_gpio_nobinded>;
+	pinctrl-0 = <&pins_gpio_nobinded &pins_vbus_usb0 &pins_vbus_usb1>;
 
 	pins_gpio_nobinded: pinmux_gpio_nobinded-pins {
 		sunplus,pins = <
@@ -311,5 +341,13 @@
 			/*SPPCTL_IOPAD(25, SPPCTL_PCTL_G_PMUX, MUXF_SPI0S_DI, 0) */
 			/*SPPCTL_IOPAD(27, SPPCTL_PCTL_G_PMUX, MUXF_SPI0S_CLK, 0) */
 		>;
+	};
+
+	pins_vbus_usb0: pinmux_vbus_usb0-pins {
+		sunplus,pins = < SPPCTL_IOPAD(90, SPPCTL_PCTL_G_GPIO, 0, SPPCTL_PCTL_L_OU1) >;
+	};
+
+	pins_vbus_usb1: pinmux_vbus_usb1-pins {
+		sunplus,pins = < SPPCTL_IOPAD(91, SPPCTL_PCTL_G_GPIO, 0, SPPCTL_PCTL_L_OU1) >;
 	};
 };
