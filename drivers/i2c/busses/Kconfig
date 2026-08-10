@@ -1590,4 +1590,12 @@ config I2C_VIRTIO
           This driver can also be built as a module. If so, the module
           will be called i2c-virtio.
 
+config I2C_SP7021
+	tristate "Sunplus SP7021 I2C master driver"
+	depends on ARCH_SUNPLUS || COMPILE_TEST
+	help
+	  Support for the I2C master controller on the Sunplus SP7021 SoC.
+	  The SP7021 has four I2C master controllers (i2cm0-3) supporting
+	  standard (100 kHz) and fast (400 kHz) modes with PIO and DMA.
+
 endmenu

@@ -17,6 +17,13 @@
 	compatible = "sunplus,sp7021";
 	model = "Sunplus SP7021";
 
+	aliases {
+		i2c0 = &i2cm0;
+		i2c1 = &i2cm1;
+		i2c2 = &i2cm2;
+		i2c3 = &i2cm3;
+	};
+
 	clocks {
 		extclk: osc0 {
 			compatible = "fixed-clock";
@@ -169,6 +176,54 @@
 			reg = <0x630 0x08>, <0x274 0x04>;
 			clocks = <&clkc CLK_STC0>;
 			resets = <&rstc RST_STC0>;
+		};
+
+		i2cm0: i2c@4600 {
+			compatible = "sunplus,sp7021-i2cm";
+			reg = <0x4600 0x100>, <0x0 0x80>;
+			reg-names = "i2cm", "i2cdmapower";
+			interrupts = <174 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc CLK_I2CM0>;
+			resets = <&rstc RST_I2CM0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		i2cm1: i2c@4700 {
+			compatible = "sunplus,sp7021-i2cm";
+			reg = <0x4700 0x100>, <0x0 0x80>;
+			reg-names = "i2cm", "i2cdmapower";
+			interrupts = <175 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc CLK_I2CM1>;
+			resets = <&rstc RST_I2CM1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		i2cm2: i2c@4800 {
+			compatible = "sunplus,sp7021-i2cm";
+			reg = <0x4800 0x100>, <0x0 0x80>;
+			reg-names = "i2cm", "i2cdmapower";
+			interrupts = <176 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc CLK_I2CM2>;
+			resets = <&rstc RST_I2CM2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		i2cm3: i2c@4900 {
+			compatible = "sunplus,sp7021-i2cm";
+			reg = <0x4900 0x100>, <0x0 0x80>;
+			reg-names = "i2cm", "i2cdmapower";
+			interrupts = <177 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc CLK_I2CM3>;
+			resets = <&rstc RST_I2CM3>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
 		};
 
 		rstc: reset@54 {
