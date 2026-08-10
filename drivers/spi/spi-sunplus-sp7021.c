@@ -487,6 +487,8 @@ static int sp7021_spi_controller_probe(struct platform_device *pdev)
 		pm_runtime_disable(dev);
 		return dev_err_probe(dev, ret, "spi_register_controller fail\n");
 	}
+	dev_info(dev, "registered as spi%d (%s mode)\n", ctlr->bus_num,
+		 mode == SP7021_TARGET_MODE ? "target" : "host");
 	return 0;
 }
 
