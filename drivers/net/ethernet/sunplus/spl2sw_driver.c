@@ -209,16 +209,17 @@ static const struct net_device_ops netdev_ops = {
 
 static void spl2sw_check_mac_vendor_id_and_convert(u8 *mac_addr)
 {
-	/* Byte order of MAC address of some samples are reversed.
-	 * Check vendor id and convert byte order if it is wrong.
-	 * OUI of Sunplus: fc:4b:bc
+	/* The OCOTP stores MAC addresses in reversed byte order. If the raw
+	 * bytes are not a valid unicast address but reversing them is, swap.
+	 * This handles any OUI (not just Sunplus fc:4b:bc).
 	 */
-	if (mac_addr[5] == 0xfc && mac_addr[4] == 0x4b && mac_addr[3] == 0xbc &&
-	    (mac_addr[0] != 0xfc || mac_addr[1] != 0x4b || mac_addr[2] != 0xbc)) {
-
-		swap(mac_addr[0], mac_addr[5]);
-		swap(mac_addr[1], mac_addr[4]);
-		swap(mac_addr[2], mac_addr[3]);
+	if (!is_valid_ether_addr(mac_addr)) {
+		u8 rev[ETH_ALEN] = {
+			mac_addr[5], mac_addr[4], mac_addr[3],
+			mac_addr[2], mac_addr[1], mac_addr[0],
+		};
+		if (is_valid_ether_addr(rev))
+			memcpy(mac_addr, rev, ETH_ALEN);
 	}
 }
 
