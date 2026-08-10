@@ -515,9 +515,19 @@ static irqreturn_t _sp_i2cm_irqevent_handler(int irq, void *args)
 
 	if (spi2c_irq->rw_state >= SPI2C_STATE_DMA_WR) {
 		_sp_i2cm_dma_intflag_check(spi2c);
+		dev_dbg(spi2c->dev, "DMA IRQ: dma_done=%d int_dma_flg=0x%x\n",
+			spi2c_irq->dma_done, spi2c_irq->int_dma_flg);
 		if (spi2c_irq->dma_done) {
 			spi2c_irq->ret = SPI2C_SUCCESS;
 			if (spi2c_irq->rw_state == SPI2C_STATE_DMA_RD) {
+				/* Clear rw_state before wake_up so the second IRQ
+				 * (regular I2C DONE, which fires ~100µs later on
+				 * this hardware) skips the DMA branch and reaches
+				 * _sp_i2cm_intflag_check to clear the status
+				 * register.  Without this, on SMP the second IRQ
+				 * overwrites dma_done=0 before the waiter runs.
+				 */
+				spi2c_irq->rw_state = SPI2C_STATE_IDLE;
 				wake_up(&spi2c->wait);
 				return IRQ_HANDLED;
 			}
@@ -840,32 +850,79 @@ static int sp_master_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int nu
 
 		spi2c_cmd->xfer_cnt = msgs[i].len;
 		if (msgs[i].flags & I2C_M_RD) {
-			/* PIO mode: hardware holds at most SP_I2C_BURST_RDATA_BYTES (16)
-			 * bytes per transaction — chunk larger reads. */
-			u8 *rptr = msgs[i].buf;
-			unsigned int remaining = msgs[i].len;
-			bool first = true;
+			if (restart_en) {
+				spi2c_cmd->restart_write_cnt = restart_write_cnt;
+				spi2c_cmd->write_data = restart_w_data;
+				spi2c_cmd->restart_en = 1;
+				restart_en = 0;
+			} else {
+				spi2c_cmd->restart_en = 0;
+			}
 
-			while (remaining > 0 && !ret) {
-				spi2c_cmd->xfer_cnt = min(remaining,
-							  (unsigned int)SP_I2C_BURST_RDATA_BYTES);
-				spi2c_cmd->read_data = rptr;
-				if (first && restart_en) {
-					spi2c_cmd->restart_write_cnt = restart_write_cnt;
-					spi2c_cmd->write_data = restart_w_data;
-					spi2c_cmd->restart_en = 1;
-					restart_en = 0;
-				} else {
-					spi2c_cmd->restart_en = 0;
+			/* Use DMA for transfers >= 16 bytes; fall back to PIO. */
+			if (msgs[i].len >= SP_I2C_BURST_RDATA_BYTES) {
+				r_buf = i2c_get_dma_safe_msg_buf(&msgs[i], SP_I2C_BURST_RDATA_BYTES);
+				if (r_buf) {
+					spi2c_cmd->dma_r_addr = dma_map_single(spi2c->dev, r_buf,
+									       msgs[i].len,
+									       DMA_FROM_DEVICE);
+					if (dma_mapping_error(spi2c->dev, spi2c_cmd->dma_r_addr))
+						i2c_put_dma_safe_msg_buf(r_buf, &msgs[i], false);
+					else
+						spi2c_cmd->xfer_mode = I2C_DMA_MODE;
 				}
-				ret = sp_i2cm_read(spi2c_cmd, spi2c);
-				rptr += spi2c_cmd->xfer_cnt;
-				remaining -= spi2c_cmd->xfer_cnt;
-				first = false;
+			}
+
+			if (spi2c_cmd->xfer_mode == I2C_DMA_MODE) {
+				ret = sp_i2cm_dma_read(spi2c_cmd, spi2c, &msgs[i]);
+				dma_unmap_single(spi2c->dev, spi2c_cmd->dma_r_addr,
+						 msgs[i].len, DMA_FROM_DEVICE);
+				i2c_put_dma_safe_msg_buf(r_buf, &msgs[i], !ret);
+			} else {
+				/* PIO: chunk to HW FIFO limit of 16 bytes. */
+				u8 *rptr = msgs[i].buf;
+				unsigned int remaining = msgs[i].len;
+				bool first = true;
+
+				while (remaining > 0 && !ret) {
+					spi2c_cmd->xfer_cnt = min(remaining,
+								  (unsigned int)SP_I2C_BURST_RDATA_BYTES);
+					spi2c_cmd->read_data = rptr;
+					if (first && spi2c_cmd->restart_en) {
+						/* restart_en already set above */
+					} else {
+						spi2c_cmd->restart_en = 0;
+					}
+					ret = sp_i2cm_read(spi2c_cmd, spi2c);
+					rptr += spi2c_cmd->xfer_cnt;
+					remaining -= spi2c_cmd->xfer_cnt;
+					first = false;
+				}
 			}
 		} else {
-			spi2c_cmd->write_data = msgs[i].buf;
-			ret = sp_i2cm_write(spi2c_cmd, spi2c);
+			/* Use DMA for writes >= 16 bytes; fall back to PIO. */
+			if (msgs[i].len >= SP_I2C_BURST_RDATA_BYTES) {
+				w_buf = i2c_get_dma_safe_msg_buf(&msgs[i], SP_I2C_BURST_RDATA_BYTES);
+				if (w_buf) {
+					spi2c_cmd->dma_w_addr = dma_map_single(spi2c->dev, w_buf,
+									       msgs[i].len,
+									       DMA_TO_DEVICE);
+					if (dma_mapping_error(spi2c->dev, spi2c_cmd->dma_w_addr))
+						i2c_put_dma_safe_msg_buf(w_buf, &msgs[i], false);
+					else
+						spi2c_cmd->xfer_mode = I2C_DMA_MODE;
+				}
+			}
+
+			if (spi2c_cmd->xfer_mode == I2C_DMA_MODE) {
+				ret = sp_i2cm_dma_write(spi2c_cmd, spi2c, &msgs[i]);
+				dma_unmap_single(spi2c->dev, spi2c_cmd->dma_w_addr,
+						 msgs[i].len, DMA_TO_DEVICE);
+				i2c_put_dma_safe_msg_buf(w_buf, &msgs[i], !ret);
+			} else {
+				spi2c_cmd->write_data = msgs[i].buf;
+				ret = sp_i2cm_write(spi2c_cmd, spi2c);
+			}
 		}
 		if (ret)
 			return -EIO;
