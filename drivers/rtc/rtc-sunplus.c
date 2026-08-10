@@ -185,7 +185,7 @@ static void sp_rtc_set_trickle_charger(struct device dev)
 
 	if (of_property_read_u32(dev.of_node, "trickle-resistor-ohms", &ohms) ||
 	    of_property_read_u32(dev.of_node, "aux-voltage-chargeable", &chargeable)) {
-		dev_warn(&dev, "battery charger disabled\n");
+		dev_info(&dev, "battery charger disabled\n");
 		return;
 	}
 
