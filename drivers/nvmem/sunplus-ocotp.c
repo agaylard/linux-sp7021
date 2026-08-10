@@ -198,9 +198,9 @@ static int sp_ocotp_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, nvmem);
 
-	dev_dbg(dev, "banks:%d x wpb:%d x wsize:%d = %d",
-		(int)QAC628_OTP_NUM_BANKS, (int)OTP_WORDS_PER_BANK,
-		(int)OTP_WORD_SIZE, (int)QAC628_OTP_SIZE);
+	dev_info(dev, "registered (banks:%d x wpb:%d x wsize:%d = %d bytes)\n",
+		 (int)QAC628_OTP_NUM_BANKS, (int)OTP_WORDS_PER_BANK,
+		 (int)OTP_WORD_SIZE, (int)QAC628_OTP_SIZE);
 
 	return 0;
 err:
