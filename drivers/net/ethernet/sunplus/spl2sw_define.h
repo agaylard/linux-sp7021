@@ -252,6 +252,7 @@ struct spl2sw_common {
 	spinlock_t int_mask_lock;	/* spinlock for accessing int mask reg. */
 
 	u8 enable;
+	u8 fixed_link_ports;	/* bitmask: bit i = port i is fixed-link (MAC-to-MAC) */
 };
 
 struct spl2sw_mac {

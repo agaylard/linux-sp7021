@@ -187,6 +187,20 @@ void spl2sw_mac_hw_init(struct spl2sw_common *comm)
 	reg &= ~(MAC_EXT_PHY1_ADDR | MAC_EXT_PHY0_ADDR);
 	reg |= FIELD_PREP(MAC_EXT_PHY1_ADDR, 31) | FIELD_PREP(MAC_EXT_PHY0_ADDR, 31);
 	reg |= MAC_FORCE_RMII_EN_1 | MAC_FORCE_RMII_EN_0;
+
+	/* For fixed-link (MAC-to-MAC) ports, force 100M/FD/link-up permanently. */
+	if (comm->fixed_link_ports & 0x1) {
+		reg |= FIELD_PREP(MAC_FORCE_RMII_LINK, 0x1) |
+		       FIELD_PREP(MAC_FORCE_RMII_SPD,  0x1) |
+		       FIELD_PREP(MAC_FORCE_RMII_DPX,  0x1);
+		reg &= ~FIELD_PREP(MAC_FORCE_RMII_FC, 0x1);
+	}
+	if (comm->fixed_link_ports & 0x2) {
+		reg |= FIELD_PREP(MAC_FORCE_RMII_LINK, 0x2) |
+		       FIELD_PREP(MAC_FORCE_RMII_SPD,  0x2) |
+		       FIELD_PREP(MAC_FORCE_RMII_DPX,  0x2);
+		reg &= ~FIELD_PREP(MAC_FORCE_RMII_FC, 0x2);
+	}
 	writel(reg, comm->l2sw_reg_base + L2SW_MAC_FORCE_MODE);
 
 	/* Port 0: VLAN group 0

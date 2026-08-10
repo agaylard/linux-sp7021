@@ -39,7 +39,10 @@ static int spl2sw_ethernet_open(struct net_device *ndev)
 	mask &= ~(MAC_INT_TX | MAC_INT_RX);
 	writel(mask, comm->l2sw_reg_base + L2SW_SW_INT_MASK_0);
 
-	phy_start(ndev->phydev);
+	if (ndev->phydev)
+		phy_start(ndev->phydev);
+	else
+		netif_carrier_on(ndev);	/* fixed-link: link is always up */
 
 	netif_start_queue(ndev);
 
@@ -55,7 +58,8 @@ static int spl2sw_ethernet_stop(struct net_device *ndev)
 
 	comm->enable &= ~mac->lan_port;
 
-	phy_stop(ndev->phydev);
+	if (ndev->phydev)
+		phy_stop(ndev->phydev);
 
 	spl2sw_mac_hw_stop(comm);
 
@@ -391,6 +395,20 @@ static int spl2sw_probe(struct platform_device *pdev)
 		goto out_clk_disable;
 	}
 
+	/* Pre-scan ethernet-ports to find fixed-link (MAC-to-MAC) ports before
+	 * MAC hw init, so spl2sw_mac_hw_init can apply force-mode settings.
+	 */
+	eth_ports_np = of_get_child_by_name(pdev->dev.of_node, "ethernet-ports");
+	if (eth_ports_np) {
+		for (i = 0; i < MAX_NETDEV_NUM; i++) {
+			port_np = spl2sw_get_eth_child_node(eth_ports_np, i);
+			if (port_np && of_get_child_by_name(port_np, "fixed-link"))
+				comm->fixed_link_ports |= BIT(i);
+		}
+		of_node_put(eth_ports_np);
+		eth_ports_np = NULL;
+	}
+
 	/* Initialize TX and RX descriptors. */
 	ret = spl2sw_descs_init(comm);
 	if (ret) {
@@ -430,12 +448,16 @@ static int spl2sw_probe(struct platform_device *pdev)
 			continue;
 		}
 
-		/* Get phy-handle. */
-		phy_np = of_parse_phandle(port_np, "phy-handle", 0);
-		if (!phy_np) {
-			dev_err(&pdev->dev, "Failed to get phy-handle property of port@%d!\n",
-				i);
-			continue;
+		/* Get phy-handle, or accept fixed-link (no PHY) for MAC-to-MAC ports. */
+		if (comm->fixed_link_ports & BIT(i)) {
+			phy_np = NULL;
+		} else {
+			phy_np = of_parse_phandle(port_np, "phy-handle", 0);
+			if (!phy_np) {
+				dev_err(&pdev->dev,
+					"Failed to get phy-handle property of port@%d!\n", i);
+				continue;
+			}
 		}
 
 		/* Get mac-address from nvmem. */

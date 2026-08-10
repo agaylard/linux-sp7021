@@ -243,20 +243,20 @@
 
 		port@0 {
 			reg = <0>;
-			phy-handle = <&eth_phy0>;
 			phy-mode = "rmii";
 			nvmem-cells = <&mac_addr0>;
 			nvmem-cell-names = "mac-address";
+			fixed-link {
+				speed = <100>;
+				full-duplex;
+			};
 		};
 	};
 
 	mdio {
 		#address-cells = <1>;
 		#size-cells = <0>;
-
-		eth_phy0: ethernet-phy@1 {
-			reg = <1>;
-		};
+		/* No PHY entries: port 0 is MAC-to-MAC via RMII */
 	};
 };
 

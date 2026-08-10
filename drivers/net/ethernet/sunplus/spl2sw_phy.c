@@ -64,6 +64,8 @@ int spl2sw_phy_connect(struct spl2sw_common *comm)
 		if (comm->ndev[i]) {
 			ndev = comm->ndev[i];
 			mac = netdev_priv(ndev);
+			if (!mac->phy_node)	/* fixed-link: no PHY to connect */
+				continue;
 			phydev = of_phy_connect(ndev, mac->phy_node, spl2sw_mii_link_change,
 						0, mac->phy_mode);
 			if (!phydev)
@@ -86,6 +88,8 @@ void spl2sw_phy_remove(struct spl2sw_common *comm)
 		if (comm->ndev[i]) {
 			ndev = comm->ndev[i];
 			mac = netdev_priv(ndev);
+			if (!mac->phy_node)	/* fixed-link: nothing to disconnect */
+				continue;
 			phy_disconnect(ndev->phydev);
 			of_node_put(mac->phy_node);
 		}
