@@ -254,8 +254,6 @@
 
 			pinctrl-names = "default";
 			pinctrl-0 = <&spi0_pins>;
-			cs-gpios = <&pctl 26 GPIO_ACTIVE_LOW>,
-				   <&pctl 28 GPIO_ACTIVE_LOW>;
 		};
 
 		spi_controller1: spi@f480 {
