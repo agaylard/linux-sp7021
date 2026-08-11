@@ -90,6 +90,15 @@
 			#gpio-cells = <2>;
 			clocks = <&clkc CLK_GPIO>;
 			resets = <&rstc RST_GPIO>;
+			/* GPIO_INT0..7: 8 GPIO interrupt routing lines */
+			interrupts = <120 IRQ_TYPE_LEVEL_HIGH>,
+				     <121 IRQ_TYPE_LEVEL_HIGH>,
+				     <122 IRQ_TYPE_LEVEL_HIGH>,
+				     <123 IRQ_TYPE_LEVEL_HIGH>,
+				     <124 IRQ_TYPE_LEVEL_HIGH>,
+				     <125 IRQ_TYPE_LEVEL_HIGH>,
+				     <126 IRQ_TYPE_LEVEL_HIGH>,
+				     <127 IRQ_TYPE_LEVEL_HIGH>;
 
 			emac_pins: pinmux-emac-pins {
 				sunplus,pins = <

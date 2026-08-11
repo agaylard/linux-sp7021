@@ -13,6 +13,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/overflow.h>
 #include <linux/platform_device.h>
 #include <linux/seq_file.h>
@@ -523,6 +524,82 @@ static void sppctl_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 	}
 }
 
+/*
+ * sppctl_gpio_to_irq - implement gpio_chip.to_irq for SP7021.
+ *
+ * The SP7021 has 8 GPIO_INT lines (GPIO_INT0..7, hwirq 120..127) that
+ * can each be routed to any GPIO pin via the fully-pinmux controller.
+ * When a GPIO is first used as an interrupt source, we claim a free
+ * GPIO_INT slot, program the pin routing, and return the Linux IRQ.
+ */
+static int sppctl_gpio_to_irq(struct gpio_chip *gc, unsigned int offset)
+{
+	/* gpiochip_get_data() returns spp_gchip, not pctl; use parent device. */
+	struct sppctl_pdata *pctl = dev_get_drvdata(gc->parent);
+	int i;
+
+	/* Return existing mapping if already set up. */
+	for (i = 0; i < SPPCTL_GPIO_NIRQS; i++) {
+		if (pctl->gpio_irq[i] < 0)
+			continue;
+		if (pctl->gpio_irq_pin[i] == (int)offset)
+			return pctl->gpio_irq[i];
+	}
+
+	/* Claim the first free GPIO_INT line. */
+	for (i = 0; i < SPPCTL_GPIO_NIRQS; i++) {
+		if (pctl->gpio_irq[i] < 0)
+			continue;
+		if (pctl->gpio_irq_pin[i] >= 0)
+			continue;
+
+		/* Put the GPIO pin in GPIO controller mode (MASTER=1) so
+		 * the GPIO controller can monitor pin transitions. Without
+		 * this the pin stays in mux mode and interrupts never fire.
+		 */
+		{
+			struct sppctl_gpio_chip *spp_gchip = pctl->spp_gchip;
+			u32 reg_off, reg;
+
+			reg = sppctl_prep_moon_reg_and_offset(offset, &reg_off, 1);
+			sppctl_gpio_master_writel(spp_gchip, reg, reg_off);
+		}
+
+		/* Route this GPIO pin to GPIO_INT[i].
+		 * The routing register is 0-indexed from the first muxable
+		 * GPIO pin (GPIO 7), so subtract 7 from the pin offset.
+		 */
+		if (offset < 7) {
+			dev_err(gc->parent, "gpio %u < 7: not usable as GPIO_INT\n", offset);
+			return -ENXIO;
+		}
+		sppctl_func_set(pctl, MUXF_GPIO_INT0 + i, offset - 7);
+		pctl->gpio_irq_pin[i] = offset;
+		return pctl->gpio_irq[i];
+	}
+
+	dev_err(gc->parent, "no free GPIO_INT line for gpio %u\n", offset);
+	return -ENXIO;
+}
+
+static void sppctl_gpio_free_irq(struct gpio_chip *gc, unsigned int offset)
+{
+	struct sppctl_pdata *pctl = dev_get_drvdata(gc->parent);
+	int i;
+
+	/* Unroute the GPIO_INT line if this pin was using one. */
+	for (i = 0; i < SPPCTL_GPIO_NIRQS; i++) {
+		if (pctl->gpio_irq_pin[i] == (int)offset) {
+			sppctl_func_set(pctl, MUXF_GPIO_INT0 + i, 0);
+			pctl->gpio_irq_pin[i] = -1;
+			dev_dbg(gc->parent, "gpio %u unrouted from GPIO_INT%d\n", offset, i);
+			break;
+		}
+	}
+
+	gpiochip_generic_free(gc, offset);
+}
+
 static int sppctl_gpio_new(struct platform_device *pdev, struct sppctl_pdata *pctl)
 {
 	struct sppctl_gpio_chip *spp_gchip;
@@ -556,6 +633,17 @@ static int sppctl_gpio_new(struct platform_device *pdev, struct sppctl_pdata *pc
 	gchip->ngpio            = sppctl_gpio_list_sz;
 	gchip->names            = sppctl_gpio_list_s;
 
+	/* Initialise GPIO_INT routing pool from the platform interrupts.
+	 * to_irq is set AFTER devm_gpiochip_add_data because gpiochip_add
+	 * unconditionally overwrites gc->to_irq with its own internal stub.
+	 */
+	for (int i = 0; i < SPPCTL_GPIO_NIRQS; i++) {
+		int irq = platform_get_irq_optional(pdev, i);
+
+		pctl->gpio_irq[i]     = (irq > 0) ? irq : -1;
+		pctl->gpio_irq_pin[i] = -1;
+	}
+
 	pctl->pctl_grange.npins = gchip->ngpio;
 	pctl->pctl_grange.name  = gchip->label;
 	pctl->pctl_grange.gc    = gchip;
@@ -563,6 +651,16 @@ static int sppctl_gpio_new(struct platform_device *pdev, struct sppctl_pdata *pc
 	err = devm_gpiochip_add_data(&pdev->dev, gchip, spp_gchip);
 	if (err)
 		return dev_err_probe(&pdev->dev, err, "Failed to add gpiochip!\n");
+
+	/* Override to_irq after gpiochip_add (which replaces it internally).
+	 * Also install free to unroute GPIO_INT lines when GPIOs are released.
+	 */
+	if (pctl->gpio_irq[0] > 0) {
+		gchip->to_irq = sppctl_gpio_to_irq;
+		gchip->free   = sppctl_gpio_free_irq;
+		dev_dbg(&pdev->dev, "GPIO_INT0..%d ready for IRQ routing\n",
+			SPPCTL_GPIO_NIRQS - 1);
+	}
 
 	return 0;
 }

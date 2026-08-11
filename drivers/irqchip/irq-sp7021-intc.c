@@ -49,12 +49,14 @@
 
 /* index of states */
 enum {
-	_IS_EDGE = 0,
-	_IS_LOW,
-	_IS_ACTIVE
+	_IS_EDGE = 0,	/* edge-triggered (vs level) */
+	_IS_LOW,	/* current armed polarity: 1=low-active, 0=high-active */
+	_IS_ACTIVE,	/* return-edge is in flight (single-edge mode only) */
+	_IS_BOTH,	/* both-edges mode: report every transition */
 };
 
-#define STATE_BIT(irq, idx)		(((irq) - GPIO_INT0_HWIRQ) * 3 + (idx))
+#define STATE_BITS_PER_IRQ	4
+#define STATE_BIT(irq, idx)	(((irq) - GPIO_INT0_HWIRQ) * STATE_BITS_PER_IRQ + (idx))
 #define ASSIGN_STATE(irq, idx, v)	assign_bit(STATE_BIT(irq, idx), sp_intc.states, v)
 #define TEST_STATE(irq, idx)		test_bit(STATE_BIT(irq, idx), sp_intc.states)
 
@@ -71,9 +73,9 @@ static struct sp_intctl {
 
 	/*
 	 * store GPIO_INT states
-	 * each interrupt has 3 states: is_edge, is_low, is_active
+	 * each interrupt has 4 states: is_edge, is_low, is_active, is_both
 	 */
-	DECLARE_BITMAP(states, (GPIO_INT7_HWIRQ - GPIO_INT0_HWIRQ + 1) * 3);
+	DECLARE_BITMAP(states, (GPIO_INT7_HWIRQ - GPIO_INT0_HWIRQ + 1) * STATE_BITS_PER_IRQ);
 } sp_intc;
 
 static struct irq_chip sp_intc_chip;
@@ -102,8 +104,26 @@ static void sp_intc_ack_irq(struct irq_data *d)
 	u32 hwirq = d->hwirq;
 
 	if (unlikely(IS_GPIO_INT(hwirq) && TEST_STATE(hwirq, _IS_EDGE))) { // WORKAROUND
-		sp_intc_assign_bit(hwirq, REG_INTR_POLARITY, !TEST_STATE(hwirq, _IS_LOW));
-		ASSIGN_STATE(hwirq, _IS_ACTIVE, true);
+		bool new_pol = !TEST_STATE(hwirq, _IS_LOW);
+
+		sp_intc_assign_bit(hwirq, REG_INTR_POLARITY, new_pol);
+
+		if (TEST_STATE(hwirq, _IS_BOTH)) {
+			/*
+			 * Both-edges mode: update _IS_LOW to track the new
+			 * hardware polarity so the next ack flips it again.
+			 * Never set _IS_ACTIVE — every level detection is a
+			 * real edge and must reach the handler.
+			 */
+			ASSIGN_STATE(hwirq, _IS_LOW, new_pol);
+		} else {
+			/*
+			 * Single-edge mode: _IS_LOW stays constant (it records
+			 * the original requested polarity).  _IS_ACTIVE signals
+			 * the handler to swallow the return-edge interrupt.
+			 */
+			ASSIGN_STATE(hwirq, _IS_ACTIVE, true);
+		}
 	}
 
 	sp_intc_assign_bit(hwirq, REG_INTR_CLEAR, 1);
@@ -124,16 +144,28 @@ static int sp_intc_set_type(struct irq_data *d, unsigned int type)
 	u32 hwirq = d->hwirq;
 	bool is_edge = !(type & IRQ_TYPE_LEVEL_MASK);
 	bool is_low = (type == IRQ_TYPE_LEVEL_LOW || type == IRQ_TYPE_EDGE_FALLING);
+	bool is_both = (type == IRQ_TYPE_EDGE_BOTH);
 
 	irq_set_handler_locked(d, is_edge ? handle_edge_irq : handle_level_irq);
 
 	if (unlikely(IS_GPIO_INT(hwirq) && is_edge)) { // WORKAROUND
-		/* store states */
-		ASSIGN_STATE(hwirq, _IS_EDGE, is_edge);
-		ASSIGN_STATE(hwirq, _IS_LOW, is_low);
+		/*
+		 * The GPIO_INT hardware re-asserts the interrupt at level after
+		 * each edge, causing a spurious second fire that disables the IRQ.
+		 * Emulate edge detection using level mode + polarity toggling on
+		 * each ack.  For both-edges, _IS_LOW alternates so every
+		 * transition is reported; for single-edge, _IS_ACTIVE suppresses
+		 * the return-edge.
+		 *
+		 * For IRQ_TYPE_EDGE_BOTH arm high-active first (is_low=false).
+		 */
+		ASSIGN_STATE(hwirq, _IS_EDGE, true);
+		ASSIGN_STATE(hwirq, _IS_LOW, is_both ? false : is_low);
 		ASSIGN_STATE(hwirq, _IS_ACTIVE, false);
+		ASSIGN_STATE(hwirq, _IS_BOTH, is_both);
 		/* change to level */
 		is_edge = false;
+		is_low = is_both ? false : is_low;
 	}
 
 	sp_intc_assign_bit(hwirq, REG_INTR_TYPE, is_edge);
@@ -185,11 +217,11 @@ static void sp_intc_handle_ext_cascaded(struct irq_desc *desc)
 }
 
 static struct irq_chip sp_intc_chip = {
-	.name = "sp_intc",
-	.irq_ack = sp_intc_ack_irq,
-	.irq_mask = sp_intc_mask_irq,
-	.irq_unmask = sp_intc_unmask_irq,
-	.irq_set_type = sp_intc_set_type,
+	.name		= "sp_intc",
+	.irq_ack	= sp_intc_ack_irq,
+	.irq_mask	= sp_intc_mask_irq,
+	.irq_unmask	= sp_intc_unmask_irq,
+	.irq_set_type	= sp_intc_set_type,
 };
 
 static int sp_intc_irq_domain_map(struct irq_domain *domain,

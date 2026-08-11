@@ -123,6 +123,8 @@ struct grp2fp_map {
 
 struct sppctl_gpio_chip;
 
+#define SPPCTL_GPIO_NIRQS	8	/* GPIO_INT0..7 hardware lines */
+
 struct sppctl_pdata {
 	void __iomem *moon2_base;	/* MOON2                                 */
 	void __iomem *gpioxt_base;	/* MASTER, OE, OUT, IN, I_INV, O_INV, OD */
@@ -137,6 +139,10 @@ struct sppctl_pdata {
 	char const **unq_grps;
 	size_t unq_grps_sz;
 	struct grp2fp_map *g2fp_maps;
+
+	/* GPIO interrupt routing: GPIO_INT0..7 → Linux IRQ numbers */
+	int gpio_irq[SPPCTL_GPIO_NIRQS];	/* Linux IRQ, or -1 if unused */
+	int gpio_irq_pin[SPPCTL_GPIO_NIRQS];	/* GPIO pin routed here, or -1 */
 };
 
 struct sppctl_grp {
