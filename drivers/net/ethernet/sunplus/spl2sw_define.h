@@ -252,7 +252,10 @@ struct spl2sw_common {
 	spinlock_t int_mask_lock;	/* spinlock for accessing int mask reg. */
 
 	u8 enable;
-	u8 fixed_link_ports;	/* bitmask: bit i = port i is fixed-link (MAC-to-MAC) */
+	u8 fixed_link_ports;			/* bitmask: bit i = port i is fixed-link */
+	u32 fixed_link_speed[MAX_NETDEV_NUM];	/* speed in Mbps per port (10 or 100) */
+	bool fixed_link_full_duplex[MAX_NETDEV_NUM]; /* full-duplex flag per port */
+	bool fixed_link_pause[MAX_NETDEV_NUM];	/* flow control (pause) per port */
 };
 
 struct spl2sw_mac {

@@ -197,6 +197,138 @@ static void spl2sw_ethernet_tx_timeout(struct net_device *ndev, unsigned int txq
 	spin_unlock_irqrestore(&comm->tx_lock, flags);
 }
 
+static int spl2sw_get_link_ksettings(struct net_device *ndev,
+				     struct ethtool_link_ksettings *cmd)
+{
+	struct spl2sw_mac *mac = netdev_priv(ndev);
+	struct spl2sw_common *comm = mac->comm;
+	int port = mac->vlan_id;
+
+	/* For PHY-connected ports, delegate to the PHY layer. */
+	if (ndev->phydev)
+		return phy_ethtool_get_link_ksettings(ndev, cmd);
+
+	ethtool_link_ksettings_zero_link_mode(cmd, supported);
+	ethtool_link_ksettings_zero_link_mode(cmd, advertising);
+
+	ethtool_link_ksettings_add_link_mode(cmd, supported, 10baseT_Half);
+	ethtool_link_ksettings_add_link_mode(cmd, supported, 10baseT_Full);
+	ethtool_link_ksettings_add_link_mode(cmd, supported, 100baseT_Half);
+	ethtool_link_ksettings_add_link_mode(cmd, supported, 100baseT_Full);
+	ethtool_link_ksettings_add_link_mode(cmd, supported, Pause);
+	ethtool_link_ksettings_add_link_mode(cmd, supported, MII);
+
+	cmd->base.autoneg = AUTONEG_DISABLE;
+	cmd->base.speed = comm->fixed_link_speed[port];
+	cmd->base.duplex = comm->fixed_link_full_duplex[port]
+			   ? DUPLEX_FULL : DUPLEX_HALF;
+	cmd->base.port = PORT_MII;
+
+	return 0;
+}
+
+static int spl2sw_set_link_ksettings(struct net_device *ndev,
+				     const struct ethtool_link_ksettings *cmd)
+{
+	struct spl2sw_mac *mac = netdev_priv(ndev);
+	struct spl2sw_common *comm = mac->comm;
+	int port = mac->vlan_id;
+	u8 lane;
+	u32 reg;
+
+	/* For PHY-connected ports, delegate to the PHY layer. */
+	if (ndev->phydev)
+		return phy_ethtool_set_link_ksettings(ndev, cmd);
+
+	if (cmd->base.autoneg != AUTONEG_DISABLE)
+		return -EINVAL;
+	if (cmd->base.speed != SPEED_10 && cmd->base.speed != SPEED_100)
+		return -EINVAL;
+	if (cmd->base.duplex != DUPLEX_HALF && cmd->base.duplex != DUPLEX_FULL)
+		return -EINVAL;
+
+	comm->fixed_link_speed[port] = cmd->base.speed;
+	comm->fixed_link_full_duplex[port] = (cmd->base.duplex == DUPLEX_FULL);
+
+	/* Apply immediately if the interface is up */
+	if (netif_running(ndev)) {
+		lane = mac->lan_port;
+		reg = readl(comm->l2sw_reg_base + L2SW_MAC_FORCE_MODE);
+
+		reg &= ~FIELD_PREP(MAC_FORCE_RMII_SPD, lane);
+		if (comm->fixed_link_speed[port] == 100)
+			reg |= FIELD_PREP(MAC_FORCE_RMII_SPD, lane);
+
+		reg &= ~FIELD_PREP(MAC_FORCE_RMII_DPX, lane);
+		if (comm->fixed_link_full_duplex[port])
+			reg |= FIELD_PREP(MAC_FORCE_RMII_DPX, lane);
+
+		writel(reg, comm->l2sw_reg_base + L2SW_MAC_FORCE_MODE);
+	}
+
+	return 0;
+}
+
+static void spl2sw_get_pauseparam(struct net_device *ndev,
+				  struct ethtool_pauseparam *pause)
+{
+	struct spl2sw_mac *mac = netdev_priv(ndev);
+	struct spl2sw_common *comm = mac->comm;
+	u32 reg;
+	u8 lane;
+
+	/* For PHY-connected ports, pause is PHY-negotiated; not settable here. */
+	if (ndev->phydev) {
+		pause->autoneg = 1;
+		pause->rx_pause = 0;
+		pause->tx_pause = 0;
+		return;
+	}
+
+	lane = mac->lan_port;
+	reg = readl(comm->l2sw_reg_base + L2SW_MAC_FORCE_MODE);
+	pause->autoneg = 0;
+	pause->rx_pause = !!(reg & FIELD_PREP(MAC_FORCE_RMII_FC, lane));
+	pause->tx_pause = pause->rx_pause;
+}
+
+static int spl2sw_set_pauseparam(struct net_device *ndev,
+				 struct ethtool_pauseparam *pause)
+{
+	struct spl2sw_mac *mac = netdev_priv(ndev);
+
+	/* Not supported for PHY-connected ports. */
+	if (ndev->phydev)
+		return -EOPNOTSUPP;
+	struct spl2sw_common *comm = mac->comm;
+	int port = mac->vlan_id;
+	u32 reg;
+
+	if (pause->autoneg)
+		return -EINVAL;
+	if (pause->rx_pause != pause->tx_pause)
+		return -EINVAL;
+
+	comm->fixed_link_pause[port] = !!pause->tx_pause;
+
+	if (netif_running(ndev)) {
+		reg = readl(comm->l2sw_reg_base + L2SW_MAC_FORCE_MODE);
+		reg &= ~FIELD_PREP(MAC_FORCE_RMII_FC, mac->lan_port);
+		if (comm->fixed_link_pause[port])
+			reg |= FIELD_PREP(MAC_FORCE_RMII_FC, mac->lan_port);
+		writel(reg, comm->l2sw_reg_base + L2SW_MAC_FORCE_MODE);
+	}
+
+	return 0;
+}
+
+static const struct ethtool_ops ethtool_ops = {
+	.get_link_ksettings = spl2sw_get_link_ksettings,
+	.set_link_ksettings = spl2sw_set_link_ksettings,
+	.get_pauseparam     = spl2sw_get_pauseparam,
+	.set_pauseparam     = spl2sw_set_pauseparam,
+};
+
 static const struct net_device_ops netdev_ops = {
 	.ndo_open = spl2sw_ethernet_open,
 	.ndo_stop = spl2sw_ethernet_stop,
@@ -281,6 +413,7 @@ static u32 spl2sw_init_netdev(struct platform_device *pdev, u8 *mac_addr,
 	}
 	SET_NETDEV_DEV(ndev, &pdev->dev);
 	ndev->netdev_ops = &netdev_ops;
+	ndev->ethtool_ops = &ethtool_ops;
 	mac = netdev_priv(ndev);
 	mac->ndev = ndev;
 	ether_addr_copy(mac->mac_addr, mac_addr);
@@ -326,6 +459,7 @@ static int spl2sw_probe(struct platform_device *pdev)
 {
 	struct device_node *eth_ports_np;
 	struct device_node *port_np;
+	struct device_node *fl_np;
 	struct spl2sw_common *comm;
 	struct device_node *phy_np;
 	phy_interface_t phy_mode;
@@ -398,13 +532,30 @@ static int spl2sw_probe(struct platform_device *pdev)
 
 	/* Pre-scan ethernet-ports to find fixed-link (MAC-to-MAC) ports before
 	 * MAC hw init, so spl2sw_mac_hw_init can apply force-mode settings.
+	 * Also read speed and duplex from the fixed-link subnode.
 	 */
+	for (i = 0; i < MAX_NETDEV_NUM; i++) {
+		comm->fixed_link_speed[i] = 100;	/* default: 100 Mbps */
+		comm->fixed_link_full_duplex[i] = true;	/* default: full duplex */
+		comm->fixed_link_pause[i] = false;	/* default: no flow control */
+	}
 	eth_ports_np = of_get_child_by_name(pdev->dev.of_node, "ethernet-ports");
 	if (eth_ports_np) {
 		for (i = 0; i < MAX_NETDEV_NUM; i++) {
 			port_np = spl2sw_get_eth_child_node(eth_ports_np, i);
-			if (port_np && of_get_child_by_name(port_np, "fixed-link"))
-				comm->fixed_link_ports |= BIT(i);
+			if (!port_np)
+				continue;
+			fl_np = of_get_child_by_name(port_np, "fixed-link");
+			if (!fl_np)
+				continue;
+			comm->fixed_link_ports |= BIT(i);
+			of_property_read_u32(fl_np, "speed",
+					     &comm->fixed_link_speed[i]);
+			comm->fixed_link_full_duplex[i] =
+				of_property_read_bool(fl_np, "full-duplex");
+			comm->fixed_link_pause[i] =
+				of_property_read_bool(fl_np, "pause");
+			of_node_put(fl_np);
 		}
 		of_node_put(eth_ports_np);
 		eth_ports_np = NULL;

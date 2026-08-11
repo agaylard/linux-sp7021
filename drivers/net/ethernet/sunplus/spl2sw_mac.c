@@ -36,7 +36,43 @@ void spl2sw_mac_hw_stop(struct spl2sw_common *comm)
 
 void spl2sw_mac_hw_start(struct spl2sw_common *comm)
 {
+	static const u8 en_bits[] = { MAC_FORCE_RMII_EN_0, MAC_FORCE_RMII_EN_1 };
+	u8 lane;
+	int p;
 	u32 reg;
+
+	/* Activate fixed-link ports: set FORCE_RMII_EN, LINK, SPD, DPX now
+	 * that the interface is opening.  These are kept out of hw_init so
+	 * the switch chip does not see an active RMII link before the
+	 * interface is UP.
+	 */
+	if (comm->fixed_link_ports) {
+		reg = readl(comm->l2sw_reg_base + L2SW_MAC_FORCE_MODE);
+		for (p = 0; p < 2; p++) {
+			lane = BIT(p);
+
+			if (!(comm->fixed_link_ports & lane))
+				continue;
+
+			reg |= en_bits[p] | FIELD_PREP(MAC_FORCE_RMII_LINK, lane);
+
+			/* Speed: 0x1/0x2 = 100 Mbps for port 0/1; 0 = 10 Mbps */
+			reg &= ~FIELD_PREP(MAC_FORCE_RMII_SPD, lane);
+			if (comm->fixed_link_speed[p] == 100)
+				reg |= FIELD_PREP(MAC_FORCE_RMII_SPD, lane);
+
+			/* Duplex: 0x1/0x2 = full for port 0/1; 0 = half */
+			reg &= ~FIELD_PREP(MAC_FORCE_RMII_DPX, lane);
+			if (comm->fixed_link_full_duplex[p])
+				reg |= FIELD_PREP(MAC_FORCE_RMII_DPX, lane);
+
+			/* Flow control (pause) */
+			reg &= ~FIELD_PREP(MAC_FORCE_RMII_FC, lane);
+			if (comm->fixed_link_pause[p])
+				reg |= FIELD_PREP(MAC_FORCE_RMII_FC, lane);
+		}
+		writel(reg, comm->l2sw_reg_base + L2SW_MAC_FORCE_MODE);
+	}
 
 	/* Enable cpu port 0 (6) & CRC padding (8) */
 	reg = readl(comm->l2sw_reg_base + L2SW_CPU_CNTL);
@@ -186,21 +222,17 @@ void spl2sw_mac_hw_init(struct spl2sw_common *comm)
 	reg = readl(comm->l2sw_reg_base + L2SW_MAC_FORCE_MODE);
 	reg &= ~(MAC_EXT_PHY1_ADDR | MAC_EXT_PHY0_ADDR);
 	reg |= FIELD_PREP(MAC_EXT_PHY1_ADDR, 31) | FIELD_PREP(MAC_EXT_PHY0_ADDR, 31);
-	reg |= MAC_FORCE_RMII_EN_1 | MAC_FORCE_RMII_EN_0;
+	/* Enable RMII force mode for non-fixed-link ports only.
+	 * For fixed-link (MAC-to-MAC) ports, defer FORCE_RMII_EN (and
+	 * FORCE_RMII_LINK/SPD/DPX) to spl2sw_mac_hw_start so the switch
+	 * chip doesn't see an active RMII link until the interface opens.
+	 */
+	if (!(comm->fixed_link_ports & 0x1))
+		reg |= MAC_FORCE_RMII_EN_0;
+	if (!(comm->fixed_link_ports & 0x2))
+		reg |= MAC_FORCE_RMII_EN_1;
 
-	/* For fixed-link (MAC-to-MAC) ports, force 100M/FD/link-up permanently. */
-	if (comm->fixed_link_ports & 0x1) {
-		reg |= FIELD_PREP(MAC_FORCE_RMII_LINK, 0x1) |
-		       FIELD_PREP(MAC_FORCE_RMII_SPD,  0x1) |
-		       FIELD_PREP(MAC_FORCE_RMII_DPX,  0x1);
-		reg &= ~FIELD_PREP(MAC_FORCE_RMII_FC, 0x1);
-	}
-	if (comm->fixed_link_ports & 0x2) {
-		reg |= FIELD_PREP(MAC_FORCE_RMII_LINK, 0x2) |
-		       FIELD_PREP(MAC_FORCE_RMII_SPD,  0x2) |
-		       FIELD_PREP(MAC_FORCE_RMII_DPX,  0x2);
-		reg &= ~FIELD_PREP(MAC_FORCE_RMII_FC, 0x2);
-	}
+	/* Speed/duplex/pause for fixed-link ports is set in hw_start */
 	writel(reg, comm->l2sw_reg_base + L2SW_MAC_FORCE_MODE);
 
 	/* Port 0: VLAN group 0
