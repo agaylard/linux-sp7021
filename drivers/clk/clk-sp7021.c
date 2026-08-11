@@ -56,12 +56,13 @@ struct sp_pll {
 struct sp_clk_gate_info {
 	u16	reg;		/* reg_index_shift */
 	u16	ext_parent;	/* parent is extclk */
+	bool	critical;	/* CLK_IS_CRITICAL: no driver consumer, must not be gated */
 };
 
 static const struct sp_clk_gate_info sp_clk_gates[] = {
 	{ 0x02 },
 	{ 0x05 },
-	{ 0x06 },
+	{ 0x06, 0, true },	/* CLK_NOC:        bus interconnect, no driver consumer */
 	{ 0x07 },
 	{ 0x09 },
 	{ 0x0b, 1 },
@@ -122,7 +123,19 @@ static const struct sp_clk_gate_info sp_clk_gates[] = {
 	{ 0x96 },
 	{ 0x97 },
 	{ 0x98 },
-	{ 0x99 },
+	{ 0x99, 0, true },	/* CLK_AXI_GLOBAL: AXI interconnect, no driver consumer */
+	/* Infrastructure clocks: all default to enabled in hardware but
+	 * have no driver consumer, so marked critical to prevent gating.
+	 */
+	{ 0x00, 0, true },	/* CLK_SYSTEM:  SYSTEM CLKEN    mo_clken0 bit 0  */
+	{ 0x03, 0, true },	/* CLK_IOCTL:   IOCTL CLKEN     mo_clken0 bit 3  */
+	{ 0x04, 0, true },	/* CLK_IOP:     IOP CLKEN       mo_clken0 bit 4  */
+	{ 0x08, 0, true },	/* CLK_RBUS:    RBUS_L00 CLKEN  mo_clken0 bit 8  */
+	{ 0x0a, 0, true },	/* CLK_SDCTRL0: SDCTRL0 CLKEN   mo_clken0 bit 10 */
+	{ 0x0d, 0, true },	/* CLK_A926:    A926 CLKEN      mo_clken0 bit 13 */
+	{ 0x0e, 0, true },	/* CLK_UMCTL2:  UMCTL2 CLKEN    mo_clken0 bit 14 (DDR ctrl) */
+	{ 0x10, 0, true },	/* CLK_DDRPHY0: DDR PHY0 CLKEN  mo_clken1 bit 0  */
+	{ 0x12, 0, true },	/* CLK_TRACER:  TRACER CLKEN    mo_clken1 bit 2  */
 };
 
 #define _M		1000000UL
@@ -676,7 +689,8 @@ static int sp7021_clk_probe(struct platform_device *pdev)
 		struct clk_parent_data *pd = sp_clk_gates[i].ext_parent ? &pd_ext : &pd_sys;
 
 		sprintf(name, "%02d_0x%02x", i, j);
-		hws[i] = devm_clk_hw_register_gate_parent_data(dev, name, pd, 0,
+		hws[i] = devm_clk_hw_register_gate_parent_data(dev, name, pd,
+							       sp_clk_gates[i].critical ? CLK_IS_CRITICAL : 0,
 							       clk_base + (j >> 4) * 4,
 							       j & 0x0f,
 							       CLK_GATE_HIWORD_MASK,

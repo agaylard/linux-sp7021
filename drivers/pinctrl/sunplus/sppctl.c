@@ -6,6 +6,7 @@
 
 #include <linux/cleanup.h>
 #include <linux/bitfield.h>
+#include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/gpio/driver.h>
@@ -1095,6 +1096,9 @@ static int sppctl_probe(struct platform_device *pdev)
 	ret = sppctl_resource_map(pdev, sppctl);
 	if (ret)
 		return ret;
+
+	if (!IS_ERR(devm_clk_get_enabled(&pdev->dev, NULL)))
+		dev_dbg(&pdev->dev, "GPIO clock enabled\n");
 
 	ret = sppctl_gpio_new(pdev, sppctl);
 	if (ret)
