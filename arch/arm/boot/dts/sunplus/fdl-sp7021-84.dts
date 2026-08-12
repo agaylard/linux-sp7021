@@ -37,12 +37,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&gpio_leds_pins>;
 
-		nLED-SYS-R {
-			label = "sys-red";
-			gpios = <&pctl 18 GPIO_ACTIVE_LOW>;
-			default-state = "off";
-			linux,default-trigger = "cpu";
-		};
+		/* sys-red LED (GPIO 18) controlled by the 8051 IOP */
 		nLED-SYS-G {
 			label = "sys-green";
 			gpios = <&pctl 19 GPIO_ACTIVE_LOW>;
@@ -290,6 +285,8 @@
 
 	pins_gpio_nobinded: pinmux_gpio_nobinded-pins {
 		sunplus,pins = <
+			/* GPIO 18 = sys-red LED, handed to the 8051 IOP */
+			SPPCTL_IOPAD(18, SPPCTL_PCTL_G_IOPP, 0, 0)
 			SPPCTL_IOPAD(24, SPPCTL_PCTL_G_GPIO, 0, SPPCTL_PCTL_L_OUT)
 			SPPCTL_IOPAD(25, SPPCTL_PCTL_G_GPIO, 0, SPPCTL_PCTL_L_OUT)
 			SPPCTL_IOPAD(26, SPPCTL_PCTL_G_GPIO, 0, SPPCTL_PCTL_L_OUT)

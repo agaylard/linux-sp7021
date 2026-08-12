@@ -17,6 +17,16 @@
 	compatible = "sunplus,sp7021";
 	model = "Sunplus SP7021";
 
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		iop_reserve: iop-sram@100000 {
+			reg = <0x100000 0x100000>;
+		};
+	};
+
 	aliases {
 		i2c0 = &i2cm0;
 		i2c1 = &i2cm1;
@@ -461,6 +471,17 @@
 			clocks = <&clkc CLK_USBC1>;
 			resets = <&rstc RST_USBC1>;
 			status = "disabled";
+		};
+
+		iop: iop@400 {
+			compatible = "sunplus,sp7021-iop";
+			reg = <0x400  0x80>,
+			      <0x000  0x80>,
+			      <0x080  0x80>,
+			      <0xf00  0x80>,
+			      <0x3100 0x80>;
+			reg-names = "iop", "iop_moon0", "iop_moon1", "iop_qctl", "iop_pmc";
+			memory-region = <&iop_reserve>;
 		};
 
 		thermal: thermal@280 {

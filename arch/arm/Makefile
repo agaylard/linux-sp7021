@@ -169,6 +169,8 @@ endif
 textofs-$(CONFIG_ARCH_QCOM_RESERVE_SMEM) := 0x00208000
 textofs-$(CONFIG_ARCH_MESON) := 0x00208000
 textofs-$(CONFIG_ARCH_AXXIA) := 0x00308000
+# SP7021 IOP SRAM occupies 0x100000-0x1FFFFF; move kernel above it
+textofs-$(CONFIG_ARCH_SUNPLUS) := 0x00208000
 
 # Machine directory name.  This list is sorted alphanumerically
 # by CONFIG_* macro name.

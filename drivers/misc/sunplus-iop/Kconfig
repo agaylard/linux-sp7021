@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config SUNPLUS_IOP
+	tristate "Sunplus SP7021 IOP (8051) support"
+	depends on SOC_SP7021 || COMPILE_TEST
+	help
+	  Driver for the 8051 I/O processor embedded in the Sunplus SP7021
+	  SoC.  The IOP manages GPIO state in low-power modes, handles RTC
+	  wake-up, and cooperates with the PMC during suspend and power-off.
+
+	  Built-in firmware is loaded into a reserved SRAM region at boot.
+	  Replacement firmware can be uploaded at runtime via sysfs.
