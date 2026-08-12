@@ -527,4 +527,14 @@ config LOONGSON2_THERMAL
 	  is higher than the high temperature threshold or lower than the low
 	  temperature threshold, the interrupt will occur.
 
+config SP7021_THERMAL
+	tristate "Sunplus SP7021 thermal sensor"
+	depends on SOC_SP7021 || COMPILE_TEST
+	depends on NVMEM
+	help
+	  Support for the thermal sensor on Sunplus SP7021 SoC.
+	  Reads die temperature from an on-chip ADC, calibrated using
+	  factory trim data stored in OTP. Trip points and cooling maps
+	  are configured via the thermal-zones device tree node.
+
 endif

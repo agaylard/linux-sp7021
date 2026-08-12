@@ -462,6 +462,35 @@
 			resets = <&rstc RST_USBC1>;
 			status = "disabled";
 		};
+
+		thermal: thermal@280 {
+			compatible = "sunplus,sp7021-thermal";
+			reg = <0x280 0x80>;
+			#thermal-sensor-cells = <0>;
+			nvmem-cell-names = "therm_calib";
+			nvmem-cells = <&therm_calib>;
+		};
+	};
+
+	thermal-zones {
+		cpu_thermal: cpu-thermal {
+			polling-delay-passive = <1000>;
+			polling-delay = <1000>;
+			thermal-sensors = <&thermal 0>;
+
+			trips {
+				cpu_hot: cpu-hot {
+					temperature = <100000>;
+					hysteresis = <1000>;
+					type = "hot";
+				};
+				cpu_crit: cpu-crit {
+					temperature = <110000>;
+					hysteresis = <0>;
+					type = "critical";
+				};
+			};
+		};
 	};
 
 };
