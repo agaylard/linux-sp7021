@@ -17,7 +17,6 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
-#include <linux/io.h>
 #include <linux/memremap.h>
 #include <asm/cacheflush.h>
 #include <asm/outercache.h>
@@ -33,8 +32,8 @@
 #define NORMAL_CODE_MAX_SIZE	0x10000	/* 64 KB */
 #define STANDBY_CODE_MAX_SIZE	0x4000	/* 16 KB */
 
-#define IOP_FW_NORMAL	"sunplus/iop-normal.bin"
-#define IOP_FW_STANDBY	"sunplus/iop-standby.bin"
+#define IOP_FW_NORMAL	"sunplus/8051-normal.bin"
+#define IOP_FW_STANDBY	"sunplus/8051-standby.bin"
 
 /* Global state */
 static bool iop_code_mode;	/* 0=normal, 1=standby */
@@ -64,7 +63,6 @@ struct sp_iop {
 	void __iomem *moon1_regs;
 	void __iomem *qctl_regs;
 	void __iomem *pmc_regs;
-	/* Standby firmware cached for use during poweroff */
 	void *standby_fw;
 	size_t standby_fw_size;
 };
@@ -300,6 +298,44 @@ static void iop_S1mode(void __iomem *iopbase)
 	writel(0xee, &r->iop_data1); /* command 8051 to enter S1 mode */
 }
 
+static void sp_iop_poweroff(void);
+
+static int sp_iop_load_firmware(struct sp_iop *iop)
+{
+	const struct firmware *fw, *standby_fw;
+	int ret;
+
+	ret = request_firmware(&fw, IOP_FW_NORMAL, iop->dev);
+	if (ret) {
+		dev_err(iop->dev, "8051 normal firmware (%s) not found\n",
+			IOP_FW_NORMAL);
+		return ret;
+	}
+
+	iop_load_and_start(iop->iop_regs, fw->data, fw->size);
+	iop_code_mode = 0;
+	release_firmware(fw);
+
+	kfree(iop->standby_fw);
+	iop->standby_fw = NULL;
+	ret = request_firmware(&standby_fw, IOP_FW_STANDBY, iop->dev);
+	if (ret) {
+		dev_warn(iop->dev, "standby firmware not found, poweroff unavailable\n");
+	} else {
+		iop->standby_fw = kmemdup(standby_fw->data, standby_fw->size,
+					  GFP_KERNEL);
+		iop->standby_fw_size = iop->standby_fw ? standby_fw->size : 0;
+		release_firmware(standby_fw);
+	}
+
+	pm_power_off = sp_iop_poweroff;
+
+	dev_info(iop->dev, "IOP (8051) started, SRAM at 0x%lx (%lu KB)%s\n",
+		 SP_IOP_RESERVE_BASE, SP_IOP_RESERVE_SIZE / 1024,
+		 iop->standby_fw ? ", standby cached" : ", NO standby fw");
+	return 0;
+}
+
 /* -------------------------------------------------------------------------
  * sysfs: normalcode / standbycode (binary, firmware upload)
  * -------------------------------------------------------------------------
@@ -463,6 +499,15 @@ static ssize_t S1mode_store(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
+static ssize_t start_store(struct device *dev, struct device_attribute *attr,
+			    const char *buf, size_t count)
+{
+	int ret = sp_iop_load_firmware(g_iop);
+
+	return ret ? ret : count;
+}
+
+static DEVICE_ATTR_WO(start);
 static DEVICE_ATTR_RW(mode);
 static DEVICE_ATTR_RW(wakein);
 static DEVICE_ATTR_RW(getdata);
@@ -476,6 +521,7 @@ static const struct bin_attribute *const iop_bin_attrs[] = {
 };
 
 static struct attribute *iop_attrs[] = {
+	&dev_attr_start.attr,
 	&dev_attr_mode.attr,
 	&dev_attr_wakein.attr,
 	&dev_attr_getdata.attr,
@@ -600,34 +646,6 @@ static int sp_iop_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, iop);
 	g_iop = iop;
 
-	/* Load normal firmware and start the 8051 */
-	{
-		const struct firmware *fw;
-
-		ret = request_firmware(&fw, IOP_FW_NORMAL, dev);
-		if (ret) {
-			dev_err(dev, "failed to load normal firmware: %d\n", ret);
-			return ret;
-		}
-		iop_load_and_start(iop->iop_regs, fw->data, fw->size);
-		iop_code_mode = 0;
-		release_firmware(fw);
-	}
-
-	/* Load and cache standby firmware for use during poweroff */
-	{
-		const struct firmware *fw;
-
-		ret = request_firmware(&fw, IOP_FW_STANDBY, dev);
-		if (ret) {
-			dev_warn(dev, "failed to load standby firmware: %d\n", ret);
-		} else {
-			iop->standby_fw = kmemdup(fw->data, fw->size, GFP_KERNEL);
-			iop->standby_fw_size = iop->standby_fw ? fw->size : 0;
-			release_firmware(fw);
-		}
-	}
-
 	iop->mdev.name  = "sp_iop";
 	iop->mdev.minor = MISC_DYNAMIC_MINOR;
 	iop->mdev.fops  = &sp_iop_fops;
@@ -639,11 +657,8 @@ static int sp_iop_probe(struct platform_device *pdev)
 	if (ret)
 		dev_warn(dev, "failed to create sysfs group: %d\n", ret);
 
-	pm_power_off = sp_iop_poweroff;
-
-	dev_info(dev, "IOP (8051) started, SRAM at 0x%lx (%lu KB)%s\n",
-		 SP_IOP_RESERVE_BASE, SP_IOP_RESERVE_SIZE / 1024,
-		 iop->standby_fw ? ", standby cached" : ", NO standby fw");
+	dev_info(dev, "SRAM at 0x%lx (%lu KB)\n",
+		 SP_IOP_RESERVE_BASE, SP_IOP_RESERVE_SIZE / 1024);
 	return 0;
 }
 
