@@ -418,3 +418,5 @@
 		>;
 	};
 };
+
+/* a926 not enabled on FigComp-4 — no remoteproc reserved memory on this board */

@@ -380,6 +380,14 @@ config XLNX_R5_REMOTEPROC
 
 	  It's safe to say N if not interested in using RPU r5f cores.
 
+config SP7021_REMOTEPROC
+	tristate "Sunplus SP7021 ARM926 remoteproc support"
+	depends on (SOC_SP7021 || COMPILE_TEST) && REMOTEPROC
+	help
+	  Support for the ARM926 remote processor in the Sunplus SP7021 SoC.
+	  Loads ELF firmware from /lib/firmware/ and manages the A926 lifecycle
+	  via the standard remoteproc framework.
+
 endif # REMOTEPROC
 
 endmenu
