@@ -77,7 +77,7 @@ static int sp_rproc_start(struct rproc *rproc)
 	INIT_WORK(&workqueue, handle_event);
 	kick_pending_ipi(rproc);
 	writel(rproc->bootaddr, local->boot);
-	dev_info(rproc->dev.parent, "A926 started, boot addr 0x%llx\n",
+	dev_info(rproc->dev.parent, "ARM926 started, boot addr 0x%llx\n",
 		 rproc->bootaddr);
 	return 0;
 }
@@ -242,7 +242,7 @@ static int sp_remoteproc_probe(struct platform_device *pdev)
 		goto free_rproc;
 	}
 
-	dev_info(dev, "SP7021 A926 remoteproc registered\n");
+	dev_info(dev, "ARM926 registered\n");
 	return 0;
 
 free_rproc:
