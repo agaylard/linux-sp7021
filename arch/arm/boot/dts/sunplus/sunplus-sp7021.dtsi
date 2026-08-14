@@ -525,3 +525,17 @@
 
 };
 
+/ {
+	/* ARM926 boot address register (0x9e809ff8) is outside soc@9c000000 ranges */
+	a926: remoteproc@9c00817c {
+		compatible = "sunplus,sp-rproc";
+		firmware = "sunplus/arm926.bin";
+		reg = <0x9c00817c 4>,   /* CPU0→A926 mailbox (G258.31) */
+		      <0x9e809ff8 4>;   /* A926 boot address register */
+		interrupt-parent = <&intc>;
+		interrupts = <189 IRQ_TYPE_EDGE_RISING>;
+		resets = <&rstc RST_A926>;
+		status = "disabled";
+	};
+};
+

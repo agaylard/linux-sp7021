@@ -51,20 +51,6 @@
 		};
 	};
 
-	/* ARM926 remoteproc — at root level for absolute address access */
-	a926: remoteproc@9c00817c {
-		compatible = "sunplus,sp-rproc";
-		firmware = "arm926.bin";
-		reg = <0x9c00817c 4>,   /* CPU0→A926 mailbox (G258.31) */
-		      <0x9e809ff8 4>;   /* A926 boot address register */
-		interrupt-parent = <&intc>;
-		interrupts = <189 IRQ_TYPE_EDGE_RISING>;
-		resets = <&rstc RST_A926>;
-		memory-region = <&rproc_mem>, <&vdev0buffer>,
-				<&vdev0vring0>, <&vdev0vring1>;
-		status = "okay";
-	};
-
 	led {
 		compatible = "gpio-leds";
 		pinctrl-names = "default", "sleep";
@@ -400,4 +386,10 @@
 	pins_vbus_usb1: pinmux_vbus_usb1-pins {
 		sunplus,pins = < SPPCTL_IOPAD(91, SPPCTL_PCTL_G_GPIO, 0, SPPCTL_PCTL_L_OU1) >;
 	};
+};
+
+&a926 {
+	memory-region = <&rproc_mem>, <&vdev0buffer>,
+			<&vdev0vring0>, <&vdev0vring1>;
+	status = "okay";
 };
