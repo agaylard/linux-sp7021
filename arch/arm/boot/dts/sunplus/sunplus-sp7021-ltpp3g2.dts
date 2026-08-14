@@ -77,6 +77,12 @@
 	};
 };
 
+&pwm {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_pwm>;
+	status = "okay";
+};
+
 &spi_controller0 {
 	spi-cpha;
 	spi-cpol;
@@ -223,6 +229,12 @@
 &pctl {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pins_gpio_nobinded &pins_vbus_usb0 &pins_vbus_usb1>;
+
+	pins_pwm: pinmux_pwm-pins {
+		sunplus,pins = <
+			SPPCTL_IOPAD(48, SPPCTL_PCTL_G_PMUX, MUXF_PWM0, 0)
+		>;
+	};
 
 	pins_gpio_nobinded: pinmux_gpio_nobinded-pins {
 		sunplus,pins = <

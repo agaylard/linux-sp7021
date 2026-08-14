@@ -210,6 +210,7 @@ static int sunplus_pwm_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return dev_err_probe(dev, ret, "Cannot register sunplus PWM\n");
 
+	dev_info(dev, "registered %u PWM channels\n", SP7021_PWM_NUM);
 	return 0;
 }
 
