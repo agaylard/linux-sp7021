@@ -386,10 +386,25 @@
 	pins_vbus_usb1: pinmux_vbus_usb1-pins {
 		sunplus,pins = < SPPCTL_IOPAD(91, SPPCTL_PCTL_G_GPIO, 0, SPPCTL_PCTL_L_OU1) >;
 	};
+
+	pins_hdmi: pinmux_hdmi-pins {
+		function = "HDMI_TX";
+		groups = "HDMI_TX1";
+	};
 };
 
 &a926 {
 	memory-region = <&rproc_mem>, <&vdev0buffer>,
 			<&vdev0vring0>, <&vdev0vring1>;
+	status = "okay";
+};
+
+&display {
+	status = "okay";
+};
+
+&hdmitx {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pins_hdmi>;
 	status = "okay";
 };

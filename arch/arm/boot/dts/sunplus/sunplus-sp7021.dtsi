@@ -526,6 +526,64 @@
 };
 
 / {
+	/*
+	 * Display pipeline: OSD0 → DMIX → TGEN → DVE → HDMI TX.
+	 * The reg block covers groups G185–G235 (DDFCH through DVE).
+	 * Enabled per-board; reserved memory for the OSD header is handled
+	 * by the driver via dmam_alloc_coherent().
+	 */
+	display: display@9c005c80 {
+		compatible = "sunplus,sp7021-display";
+		reg = <0x9c005c80 0x1980>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 IRQ_TYPE_EDGE_RISING>,
+			     <1 IRQ_TYPE_EDGE_RISING>,
+			     <4 IRQ_TYPE_EDGE_RISING>,
+			     <5 IRQ_TYPE_EDGE_RISING>;
+		clocks = <&clkc CLK_TGEN>, <&clkc CLK_DMIX>,
+			 <&clkc CLK_OSD0>, <&clkc CLK_GPOST0>,
+			 <&clkc CLK_DVE>;
+		clock-names = "tgen", "dmix", "osd0", "gpost0", "dve";
+		resets = <&rstc RST_TGEN>, <&rstc RST_DMIX>,
+			 <&rstc RST_OSD0>, <&rstc RST_GPOST0>,
+			 <&rstc RST_DVE>;
+		reset-names = "tgen", "dmix", "osd0", "gpost0", "dve";
+		status = "disabled";
+
+		port {
+			display_out: endpoint {
+				remote-endpoint = <&hdmitx_in>;
+			};
+		};
+	};
+
+	/*
+	 * HDMI TX register regions:
+	 *   hdmitx — G380 base (0x9c00be00), all HDMI G0–G7 registers
+	 *   plltv  — MOON4 PLLTV_CONTROL_REGISTER0–2 (0x9c000238)
+	 *   tmds   — MOON5 TMDS_L2SW_CONTROL_REGISTER (0x9c000290)
+	 */
+	hdmitx: hdmitx@9c00be00 {
+		compatible = "sunplus,sp7021-hdmitx";
+		reg = <0x9c00be00 0x3fc>,
+		      <0x9c000238 0x0c>,
+		      <0x9c000290 0x04>;
+		reg-names = "hdmitx", "plltv", "tmds";
+		interrupt-parent = <&intc>;
+		interrupts = <105 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc CLK_HDMI_TX>;
+		resets = <&rstc RST_HDMI_TX>;
+		status = "disabled";
+
+		port {
+			hdmitx_in: endpoint {
+				remote-endpoint = <&display_out>;
+			};
+		};
+	};
+};
+
+/ {
 	/* ARM926 boot address register (0x9e809ff8) is outside soc@9c000000 ranges */
 	a926: remoteproc@9c00817c {
 		compatible = "sunplus,sp-rproc";
