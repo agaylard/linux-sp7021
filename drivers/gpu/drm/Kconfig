@@ -357,6 +357,7 @@ source "drivers/gpu/drm/vmwgfx/Kconfig"
 source "drivers/gpu/drm/xe/Kconfig"
 source "drivers/gpu/drm/xen/Kconfig"
 source "drivers/gpu/drm/xlnx/Kconfig"
+source "drivers/gpu/drm/sunplus/Kconfig"
 
 endif
 

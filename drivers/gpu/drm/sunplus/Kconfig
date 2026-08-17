@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config DRM_SP7021
+	tristate "Sunplus SP7021 DRM display"
+	depends on DRM && OF
+	select DRM_KMS_HELPER
+	select DRM_GEM_DMA_HELPER
+	select DRM_DISPLAY_HELPER
+	select DRM_BRIDGE_CONNECTOR
+	help
+	  DRM driver for the SP7021 display pipeline. Drives the OSD0 layer
+	  through DMIX and TGEN, attaching to the sp7021-hdmitx bridge for
+	  HDMI output. Enables Wayland compositors via DRM/KMS.
+
+config DRM_SP7021_HDMITX
+	tristate "Sunplus SP7021 HDMI TX"
+	depends on DRM && OF
+	select DRM_BRIDGE_CONNECTOR
+	select DRM_KMS_HELPER
+	help
+	  DRM bridge driver for the HDMI transmitter integrated in the
+	  Sunplus SP7021 SoC. Supports 480p, 576p, 720p60 and 1080p60
+	  output modes with HPD and EDID via the hardware DDC controller.
