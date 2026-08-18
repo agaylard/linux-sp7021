@@ -23,6 +23,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
+#include <linux/semaphore.h>
 #include <linux/reset.h>
 
 #define SPSDC_MIN_CLK			400000
@@ -158,7 +159,7 @@ struct spsdc_host {
 	struct reset_control *rstc;
 	spinlock_t lock;
 	struct mmc_host *mmc;
-	struct mutex mrq_lock;
+	struct semaphore mrq_lock;	/* binary; allows cross-context unlock (irq→process) */
 	struct mmc_request *mrq;
 	struct sg_mapping_iter sg_miter;
 	struct spsdc_tuning_info tuning_info;
@@ -688,7 +689,7 @@ static void spsdc_finish_request(struct spsdc_host *host,
 		__switch_sdio_bus_width(host, MMC_BUS_WIDTH_4);
 		host->restore_4bit_sdio_bus = 0;
 	}
-	mutex_unlock(&host->mrq_lock);
+	up(&host->mrq_lock);
 	mmc_request_done(host->mmc, mrq);
 }
 
@@ -721,7 +722,7 @@ static void spsdc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	int bus_width = mmc->ios.bus_width;
 	int ret;
 
-	ret = mutex_lock_interruptible(&host->mrq_lock);
+	ret = down_interruptible(&host->mrq_lock);
 	if (ret)
 		return;
 
@@ -733,7 +734,7 @@ static void spsdc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		if (__switch_sdio_bus_width(host, MMC_BUS_WIDTH_1)) {
 			cmd->error = -1;
 			host->mrq = NULL;
-			mutex_unlock(&host->mrq_lock);
+			up(&host->mrq_lock);
 			mmc_request_done(host->mmc, mrq);
 			return;
 		}
@@ -747,7 +748,7 @@ static void spsdc_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		spsdc_wait_finish(host);
 		spsdc_check_error(host, mrq);
 		host->mrq = NULL;
-		mutex_unlock(&host->mrq_lock);
+		up(&host->mrq_lock);
 		mmc_request_done(host->mmc, mrq);
 	} else {
 		if (data)
@@ -778,13 +779,13 @@ static void spsdc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 {
 	struct spsdc_host *host = mmc_priv(mmc);
 
-	mutex_lock(&host->mrq_lock);
+	down(&host->mrq_lock);
 	spsdc_set_power_mode(host, ios);
 	spsdc_set_bus_clk(host, ios->clock);
 	spsdc_set_bus_timing(host, ios->timing);
 	spsdc_set_bus_width(host, ios->bus_width);
 	spsdc_select_mode(host);
-	mutex_unlock(&host->mrq_lock);
+	up(&host->mrq_lock);
 }
 
 static int spsdc_get_cd(struct mmc_host *mmc)
@@ -822,10 +823,11 @@ static const struct mmc_host_ops spsdc_ops = {
 static void tsklet_func_finish_req(struct tasklet_struct *t)
 {
 	struct spsdc_host *host = from_tasklet(host, t, tsklet_finish_req);
+	unsigned long flags;
 
-	spin_lock(&host->lock);
+	spin_lock_irqsave(&host->lock, flags);
 	spsdc_finish_request(host, host->mrq);
-	spin_unlock(&host->lock);
+	spin_unlock_irqrestore(&host->lock, flags);
 }
 
 static void spsdc_disable_unprepare(void *data)
@@ -912,7 +914,7 @@ static int spsdc_drv_probe(struct platform_device *pdev)
 		goto free_host;
 
 	spin_lock_init(&host->lock);
-	mutex_init(&host->mrq_lock);
+	sema_init(&host->mrq_lock, 1);
 	tasklet_setup(&host->tsklet_finish_req, tsklet_func_finish_req);
 
 	mmc->ops = &spsdc_ops;
@@ -961,6 +963,7 @@ static void spsdc_drv_remove(struct platform_device *pdev)
 	mmc_free_host(host->mmc);
 }
 
+
 static int spsdc_pm_runtime_suspend(struct device *dev)
 {
 	struct spsdc_host *host = dev_get_drvdata(dev);
@@ -986,9 +989,9 @@ static const struct of_device_id spsdc_of_table[] = {
 MODULE_DEVICE_TABLE(of, spsdc_of_table);
 
 static struct platform_driver spsdc_driver = {
-	.probe  = spsdc_drv_probe,
-	.remove = spsdc_drv_remove,
-	.driver = {
+	.probe    = spsdc_drv_probe,
+	.remove   = spsdc_drv_remove,
+	.driver   = {
 		.name           = "spsdc",
 		.pm             = pm_ptr(&spsdc_pm_ops),
 		.of_match_table = spsdc_of_table,
