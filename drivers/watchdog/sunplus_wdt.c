@@ -61,9 +61,15 @@ static int sp_wdt_restart(struct watchdog_device *wdev,
 
 	writel(WDT_STOP, base + WDT_CTRL);
 	writel(WDT_UNLOCK, base + WDT_CTRL);
-	writel(0x0001, base + WDT_CNT);
+	writel(0x20F5, base + WDT_CNT);	/* ~1.5s at 90kHz */
 	writel(WDT_LOCK, base + WDT_CTRL);
 	writel(WDT_RESUME, base + WDT_CTRL);
+
+	pr_info("sunplus-wdt: waiting for watchdog to reset the system\n");
+	/* Spin until the watchdog resets us. This prevents any other CPU
+	 * from petting the watchdog. */
+	while (1)
+		cpu_relax();
 
 	return 0;
 }
