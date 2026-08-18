@@ -691,7 +691,7 @@ static int sp_i2cm_dma_write(struct sp_i2c_cmd *spi2c_cmd, struct sp_i2c_dev *sp
 		return -ENXIO;
 
 	if (spi2c->mode == SP_I2C_DMA_POW_SW && spi2c->i2c_power_regs)
-		sp_i2cm_enable(0, spi2c->i2c_power_regs);
+		sp_i2cm_enable(spi2c->adap.nr, spi2c->i2c_power_regs);
 
 	sp_i2cm_reset(sr);
 	memset(spi2c_irq, 0, sizeof(*spi2c_irq));
@@ -746,7 +746,7 @@ static int sp_i2cm_dma_read(struct sp_i2c_cmd *spi2c_cmd, struct sp_i2c_dev *spi
 		return -ENXIO;
 
 	if (spi2c->mode == SP_I2C_DMA_POW_SW && spi2c->i2c_power_regs)
-		sp_i2cm_enable(0, spi2c->i2c_power_regs);
+		sp_i2cm_enable(spi2c->adap.nr, spi2c->i2c_power_regs);
 
 	sp_i2cm_reset(sr);
 	memset(spi2c_irq, 0, sizeof(*spi2c_irq));
@@ -823,6 +823,10 @@ static int sp_master_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int nu
 	int i, j;
 
 	ret = pm_runtime_get_sync(spi2c->dev);
+	if (ret < 0)
+		return ret;
+	ret = 0;	/* pm_runtime_get_sync returns 1 when device was already active;
+			 * reset to 0 so the PIO read while loop's !ret check works */
 
 	if (num == 0)
 		return -EINVAL;
@@ -1042,6 +1046,14 @@ static int sp_i2c_probe(struct platform_device *pdev)
 	p_adap->dev.parent = dev;
 	p_adap->dev.of_node = dev->of_node;
 
+	/* Software-reset the controller before registering the adapter so that
+	 * any child I2C devices that probe synchronously during
+	 * i2c_add_numbered_adapter() find the hardware in a clean known state.
+	 */
+	sp_i2cm_reset(spi2c->i2c_regs);
+	if (spi2c->mode == SP_I2C_DMA_POW_SW && spi2c->i2c_power_regs)
+		sp_i2cm_enable(p_adap->nr, spi2c->i2c_power_regs);
+
 	if (p_adap->nr >= 0)
 		ret = i2c_add_numbered_adapter(p_adap);
 	else
@@ -1049,7 +1061,6 @@ static int sp_i2c_probe(struct platform_device *pdev)
 	if (ret)
 		return dev_err_probe(dev, ret, "failed to add I2C adapter\n");
 
-	sp_i2cm_reset(spi2c->i2c_regs);
 	platform_set_drvdata(pdev, spi2c);
 	dev_info(dev, "registered as i2c-%d\n", p_adap->nr);
 
