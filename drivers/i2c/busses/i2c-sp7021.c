@@ -18,8 +18,8 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/platform_device.h>
 #include <linux/reset.h>
 
 #define SP_I2C_STD_FREQ				100
@@ -137,9 +137,10 @@
 #define SP_I2C_POWER_GCLKEN3			0x0038
 #define SP_I2C_POWER_RESET3			0x0060
 
-#define SP_I2C_RESET(id, val)			(((1 << 16) | (val)) << (id))
-#define SP_I2C_CLKEN(id, val)			(((1 << 16) | (val)) << (id))
-#define SP_I2C_GCLKEN(id, val)			(((1 << 16) | (val)) << (id))
+/* Moon-format writes for the shared DMA power registers (id=0 always) */
+#define SP_I2C_CLKEN0_EN	0x00010001	/* write-enable bit 0, set bit 0 */
+#define SP_I2C_GCLKEN0_DIS	0x00010000	/* write-enable bit 0, clear bit 0 */
+#define SP_I2C_RESET0_DEASSERT	0x00010000	/* write-enable bit 0, clear bit 0 */
 
 enum sp_state_e_ {
 	SPI2C_SUCCESS = 0,
@@ -354,11 +355,11 @@ static void sp_i2cm_int_set(void __iomem *sr, u32 int0, u32 rdata_en, u32 overfl
 		writel(overflow_en, sr + SP_I2C_INT_EN2_REG);
 }
 
-static void sp_i2cm_enable(unsigned int device_id, void *membase)
+static void sp_i2cm_enable(void *membase)
 {
-	writel(SP_I2C_CLKEN(device_id, 1),  membase + SP_I2C_POWER_CLKEN3);
-	writel(SP_I2C_GCLKEN(device_id, 0), membase + SP_I2C_POWER_GCLKEN3);
-	writel(SP_I2C_RESET(device_id, 0),  membase + SP_I2C_POWER_RESET3);
+	writel(SP_I2C_CLKEN0_EN,      membase + SP_I2C_POWER_CLKEN3);
+	writel(SP_I2C_GCLKEN0_DIS,    membase + SP_I2C_POWER_GCLKEN3);
+	writel(SP_I2C_RESET0_DEASSERT, membase + SP_I2C_POWER_RESET3);
 }
 
 static void sp_i2cm_manual_trigger(void __iomem *sr)
@@ -691,7 +692,7 @@ static int sp_i2cm_dma_write(struct sp_i2c_cmd *spi2c_cmd, struct sp_i2c_dev *sp
 		return -ENXIO;
 
 	if (spi2c->mode == SP_I2C_DMA_POW_SW && spi2c->i2c_power_regs)
-		sp_i2cm_enable(spi2c->adap.nr, spi2c->i2c_power_regs);
+		sp_i2cm_enable(spi2c->i2c_power_regs);
 
 	sp_i2cm_reset(sr);
 	memset(spi2c_irq, 0, sizeof(*spi2c_irq));
@@ -714,7 +715,7 @@ static int sp_i2cm_dma_write(struct sp_i2c_cmd *spi2c_cmd, struct sp_i2c_dev *sp
 	sp_i2cm_int_set(sr, int0, 0, 0);
 	sp_i2cm_dma_addr_set(sr, spi2c_cmd->dma_w_addr);
 	sp_i2cm_dma_len_set(sr, spi2c_cmd->xfer_cnt);
-	sp_i2cm_dma_rw_mode_set(sr, I2C_DMA_READ_MODE);
+	sp_i2cm_dma_rw_mode_set(sr, I2C_DMA_WRITE_MODE);
 	sp_i2cm_dma_int_en_set(sr, dma_int);
 	sp_i2cm_dma_go_set(sr);
 
@@ -746,7 +747,7 @@ static int sp_i2cm_dma_read(struct sp_i2c_cmd *spi2c_cmd, struct sp_i2c_dev *spi
 		return -ENXIO;
 
 	if (spi2c->mode == SP_I2C_DMA_POW_SW && spi2c->i2c_power_regs)
-		sp_i2cm_enable(spi2c->adap.nr, spi2c->i2c_power_regs);
+		sp_i2cm_enable(spi2c->i2c_power_regs);
 
 	sp_i2cm_reset(sr);
 	memset(spi2c_irq, 0, sizeof(*spi2c_irq));
@@ -823,10 +824,9 @@ static int sp_master_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs, int nu
 	int i, j;
 
 	ret = pm_runtime_get_sync(spi2c->dev);
-	if (ret < 0)
+	if (ret < 0 && ret != -EACCES)
 		return ret;
-	ret = 0;	/* pm_runtime_get_sync returns 1 when device was already active;
-			 * reset to 0 so the PIO read while loop's !ret check works */
+	ret = 0;
 
 	if (num == 0)
 		return -EINVAL;
@@ -1046,13 +1046,13 @@ static int sp_i2c_probe(struct platform_device *pdev)
 	p_adap->dev.parent = dev;
 	p_adap->dev.of_node = dev->of_node;
 
-	/* Software-reset the controller before registering the adapter so that
-	 * any child I2C devices that probe synchronously during
-	 * i2c_add_numbered_adapter() find the hardware in a clean known state.
+	/* Software-reset the controller before registering the adapter.
+	 * sp_i2cm_enable uses id=0 because the DMA power gate in
+	 * SP_I2C_POWER_CLKEN3 is shared across all four I2C controllers.
 	 */
 	sp_i2cm_reset(spi2c->i2c_regs);
 	if (spi2c->mode == SP_I2C_DMA_POW_SW && spi2c->i2c_power_regs)
-		sp_i2cm_enable(p_adap->nr, spi2c->i2c_power_regs);
+		sp_i2cm_enable(spi2c->i2c_power_regs);
 
 	if (p_adap->nr >= 0)
 		ret = i2c_add_numbered_adapter(p_adap);
@@ -1093,8 +1093,8 @@ static int sp_i2c_runtime_resume(struct device *dev)
 {
 	struct sp_i2c_dev *spi2c = dev_get_drvdata(dev);
 
-	reset_control_deassert(spi2c->rstc);
 	clk_prepare_enable(spi2c->clk);
+	reset_control_deassert(spi2c->rstc);
 	return 0;
 }
 
@@ -1110,6 +1110,7 @@ static int sp_i2c_resume(struct device *dev)
 {
 	struct sp_i2c_dev *spi2c = dev_get_drvdata(dev);
 
+	clk_prepare_enable(spi2c->clk);
 	reset_control_deassert(spi2c->rstc);
 	return 0;
 }
