@@ -23,7 +23,7 @@
 	};
 
 	chosen {
-		bootargs = "console=ttyS0,115200 loglevel=8 root=/dev/mmcblk0p2 rw clk_ignore_unused rcupdate.rcu_cpu_stall_panic=1 hung_task_panic=1 panic=30";
+		bootargs = "console=ttyS0,115200 loglevel=8 root=/dev/mmcblk0p2 rw clk_ignore_unused";
 		stdout-path = "serial0:115200n8";
 	};
 
@@ -175,10 +175,6 @@
 	pinctrl-0 = <&i2cm2_pins>;
 	clock-frequency = <100000>;
 	status = "okay";
-};
-
-&i2cm3 {
-	status = "disabled";
 };
 
 &uart1 {
