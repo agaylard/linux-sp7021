@@ -124,9 +124,14 @@ static const struct sp_clk_gate_info sp_clk_gates[] = {
 	{ 0x97 },
 	{ 0x98 },		/* CLK_ICM: Input Capture Module */
 	{ 0x99, 0, true },	/* CLK_AXI_GLOBAL: AXI interconnect, no driver consumer */
-	/* Infrastructure clocks: all default to enabled in hardware but
-	 * have no driver consumer, so marked critical to prevent gating.
-	 */
+};
+
+/*
+ * Infrastructure clocks have no DT consumer so are not exposed
+ * through the of_clk provider. They are registered separately and
+ * marked CLK_IS_CRITICAL so clk_disable_unused() never gates them.
+ */
+static const struct sp_clk_gate_info sp_clk_infra[] = {
 	{ 0x00, 0, true },	/* CLK_SYSTEM:  SYSTEM CLKEN    mo_clken0 bit 0  */
 	{ 0x03, 0, true },	/* CLK_IOCTL:   IOCTL CLKEN     mo_clken0 bit 3  */
 	{ 0x04, 0, true },	/* CLK_IOP:     IOP CLKEN       mo_clken0 bit 4  */
@@ -644,25 +649,23 @@ static int sp7021_clk_probe(struct platform_device *pdev)
 	/*
 	 * PLLE and all its sub-outputs are used by the L2SW Ethernet switch
 	 * (50MHz RMII, 25MHz MII/100M, 2.5MHz MII/10M, 112.5MHz MAC fabric).
-	 * The L2SW driver explicitly claims these via clock-names in DTS, but
-	 * CLK_IS_CRITICAL is kept as a belt-and-suspenders guard in case the
-	 * driver consumer reference isn't sufficient on all board configurations.
+	 * The L2SW driver explicitly claims these via clock-names in DTS.
 	 */
 	hws[PLL_E] = sp_pll_register(dev, "plle", &pd_ext, PLLE_CTL,
-				     6, 2, 50000000, 0, 0, CLK_IS_CRITICAL);
+				     6, 2, 50000000, 0, 0, 0);
 	if (IS_ERR(hws[PLL_E]))
 		return PTR_ERR(hws[PLL_E]);
 	pd_e.hw = hws[PLL_E];
 	hws[PLL_E_2P5] = sp_pll_register(dev, "plle_2p5", &pd_e, PLLE_CTL,
-					 13, -1, 2500000, 0, 0, CLK_IS_CRITICAL);
+					 13, -1, 2500000, 0, 0, 0);
 	if (IS_ERR(hws[PLL_E_2P5]))
 		return PTR_ERR(hws[PLL_E_2P5]);
 	hws[PLL_E_25] = sp_pll_register(dev, "plle_25", &pd_e, PLLE_CTL,
-					12, -1, 25000000, 0, 0, CLK_IS_CRITICAL);
+					12, -1, 25000000, 0, 0, 0);
 	if (IS_ERR(hws[PLL_E_25]))
 		return PTR_ERR(hws[PLL_E_25]);
 	hws[PLL_E_112P5] = sp_pll_register(dev, "plle_112p5", &pd_e, PLLE_CTL,
-					   11, -1, 112500000, 0, 0, CLK_IS_CRITICAL);
+					   11, -1, 112500000, 0, 0, 0);
 	if (IS_ERR(hws[PLL_E_112P5]))
 		return PTR_ERR(hws[PLL_E_112P5]);
 
@@ -689,7 +692,7 @@ static int sp7021_clk_probe(struct platform_device *pdev)
 		return PTR_ERR(hws[PLL_SYS]);
 	pd_sys.hw = hws[PLL_SYS];
 
-	/* gates */
+	/* gates, directly mapped into hws[] for DT lookup */
 	for (i = 0; i < ARRAY_SIZE(sp_clk_gates); i++) {
 		char name[10];
 		u32 j = sp_clk_gates[i].reg;
@@ -704,6 +707,23 @@ static int sp7021_clk_probe(struct platform_device *pdev)
 							       NULL);
 		if (IS_ERR(hws[i]))
 			return PTR_ERR(hws[i]);
+	}
+
+	/* infrastructure gates, not in hws[] */
+	for (i = 0; i < ARRAY_SIZE(sp_clk_infra); i++) {
+		char name[14];
+		u32 j = sp_clk_infra[i].reg;
+		struct clk_hw *hw;
+
+		sprintf(name, "infra_0x%02x", j);
+		hw = devm_clk_hw_register_gate_parent_data(dev, name, &pd_sys,
+							   CLK_IS_CRITICAL,
+							   clk_base + (j >> 4) * 4,
+							   j & 0x0f,
+							   CLK_GATE_HIWORD_MASK,
+							   NULL);
+		if (IS_ERR(hw))
+			return PTR_ERR(hw);
 	}
 
 	return devm_of_clk_add_hw_provider(dev, of_clk_hw_onecell_get, clk_data);
