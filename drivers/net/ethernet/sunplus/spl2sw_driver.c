@@ -495,11 +495,28 @@ static int spl2sw_probe(struct platform_device *pdev)
 	irq = ret;
 
 	/* Get clock controller. */
-	comm->clk = devm_clk_get(&pdev->dev, NULL);
+	comm->clk = devm_clk_get(&pdev->dev, "l2sw");
 	if (IS_ERR(comm->clk)) {
 		dev_err_probe(&pdev->dev, PTR_ERR(comm->clk),
 			      "Failed to retrieve clock controller!\n");
 		return PTR_ERR(comm->clk);
+	}
+
+	/* Enable PLLE sub-outputs needed by the L2SW MAC fabric. */
+	{
+		static const char * const plle_clks[] = {
+			"plle_25", "plle_2p5", "plle_112p5"
+		};
+		struct clk *clk;
+		int i;
+
+		for (i = 0; i < ARRAY_SIZE(plle_clks); i++) {
+			clk = devm_clk_get_enabled(&pdev->dev, plle_clks[i]);
+			if (IS_ERR(clk))
+				return dev_err_probe(&pdev->dev, PTR_ERR(clk),
+						     "Failed to enable %s\n",
+						     plle_clks[i]);
+		}
 	}
 
 	/* Get reset controller. */
