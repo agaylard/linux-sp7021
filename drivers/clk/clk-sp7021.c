@@ -56,75 +56,72 @@ struct sp_pll {
 struct sp_clk_gate_info {
 	u16		reg;		/* reg_index_shift */
 	u16		ext_parent;	/* parent is extclk */
-	bool		critical;	/* CLK_IS_CRITICAL: no driver consumer, must not be gated */
 	const char	*name;
 };
 
 static const struct sp_clk_gate_info sp_clk_gates[] = {
-	{ 0x02, 0, false, "rtc" },
-	{ 0x05, 0, false, "otprx" },
-	{ 0x06, 0, true,  "noc" },		/* bus interconnect, no driver consumer */
-	{ 0x07, 0, false, "br" },
-	{ 0x09, 0, false, "spifl" },
-	{ 0x0b, 1, false, "peri0" },
-	{ 0x0f, 1, false, "peri1" },
-	{ 0x14, 0, false, "stc0" },
-	{ 0x15, 0, false, "stc_av0" },
-	{ 0x16, 0, false, "stc_av1" },
-	{ 0x17, 0, false, "stc_av2" },
-	{ 0x18, 1, false, "ua0" },
-	{ 0x19, 1, false, "ua1" },
-	{ 0x1a, 1, false, "ua2" },
-	{ 0x1b, 1, false, "ua3" },
-	{ 0x1c, 1, false, "ua4" },
-	{ 0x1d, 1, false, "hwua" },
-	{ 0x1e, 0, false, "ddc0" },
-	{ 0x1f, 1, false, "uadma" },
-	{ 0x20, 0, false, "cbdma0" },
-	{ 0x21, 0, false, "cbdma1" },
-	{ 0x22, 0, false, "spi_combo0" },
-	{ 0x23, 0, false, "spi_combo1" },
-	{ 0x24, 0, false, "spi_combo2" },
-	{ 0x25, 0, false, "spi_combo3" },
-	{ 0x26, 0, false, "aud" },
-	{ 0x2a, 0, false, "usbc0" },
-	{ 0x2b, 0, false, "usbc1" },
-	{ 0x2d, 0, false, "uphy0" },
-	{ 0x2e, 0, false, "uphy1" },
-	{ 0x30, 0, false, "i2cm0" },
-	{ 0x31, 0, false, "i2cm1" },
-	{ 0x32, 0, false, "i2cm2" },
-	{ 0x33, 0, false, "i2cm3" },
-	{ 0x3d, 0, false, "pmc" },
-	{ 0x3e, 0, false, "card_ctl0" },
-	{ 0x3f, 0, false, "card_ctl1" },
-	{ 0x42, 0, false, "card_ctl4" },
-	{ 0x44, 0, false, "bch" },
-	{ 0x4b, 0, false, "ddfch" },
-	{ 0x4c, 0, false, "csiiw0" },
-	{ 0x4d, 0, false, "csiiw1" },
-	{ 0x4e, 0, false, "mipicsi0" },
-	{ 0x4f, 0, false, "mipicsi1" },
-	{ 0x50, 0, false, "hdmi_tx" },
-	{ 0x55, 0, false, "vpost" },
-	{ 0x60, 0, false, "tgen" },
-	{ 0x61, 0, false, "dmix" },
-	{ 0x6a, 0, false, "tcon" },
-	{ 0x73, 0, false, "gpio" },
-	{ 0x86, 0, false, "mailbox" },
-	{ 0x8a, 0, false, "spind" },
-	{ 0x8b, 0, false, "i2c2cbus" },
-	{ 0x8d, 0, false, "sec" },
-	{ 0x8e, 0, false, "dve" },
-	{ 0x8f, 0, false, "gpost0" },
-	{ 0x90, 0, false, "osd0" },
-	{ 0x92, 0, false, "disp_pwm" },
-	{ 0x93, 0, false, "uadbg" },
-	{ 0x95, 0, false, "fio_ctl" },
-	{ 0x96, 0, false, "fpga" },
-	{ 0x97, 0, false, "l2sw" },
-	{ 0x98, 0, false, "icm" },
-	{ 0x99, 0, true,  "axi_global" },	/* AXI interconnect, no driver consumer */
+	{ 0x02, 0, "rtc" },
+	{ 0x05, 0, "otprx" },
+	{ 0x07, 0, "br" },
+	{ 0x09, 0, "spifl" },
+	{ 0x0b, 1, "peri0" },
+	{ 0x0f, 1, "peri1" },
+	{ 0x14, 0, "stc0" },
+	{ 0x15, 0, "stc_av0" },
+	{ 0x16, 0, "stc_av1" },
+	{ 0x17, 0, "stc_av2" },
+	{ 0x18, 1, "ua0" },
+	{ 0x19, 1, "ua1" },
+	{ 0x1a, 1, "ua2" },
+	{ 0x1b, 1, "ua3" },
+	{ 0x1c, 1, "ua4" },
+	{ 0x1d, 1, "hwua" },
+	{ 0x1e, 0, "ddc0" },
+	{ 0x1f, 1, "uadma" },
+	{ 0x20, 0, "cbdma0" },
+	{ 0x21, 0, "cbdma1" },
+	{ 0x22, 0, "spi_combo0" },
+	{ 0x23, 0, "spi_combo1" },
+	{ 0x24, 0, "spi_combo2" },
+	{ 0x25, 0, "spi_combo3" },
+	{ 0x26, 0, "aud" },
+	{ 0x2a, 0, "usbc0" },
+	{ 0x2b, 0, "usbc1" },
+	{ 0x2d, 0, "uphy0" },
+	{ 0x2e, 0, "uphy1" },
+	{ 0x30, 0, "i2cm0" },
+	{ 0x31, 0, "i2cm1" },
+	{ 0x32, 0, "i2cm2" },
+	{ 0x33, 0, "i2cm3" },
+	{ 0x3d, 0, "pmc" },
+	{ 0x3e, 0, "card_ctl0" },
+	{ 0x3f, 0, "card_ctl1" },
+	{ 0x42, 0, "card_ctl4" },
+	{ 0x44, 0, "bch" },
+	{ 0x4b, 0, "ddfch" },
+	{ 0x4c, 0, "csiiw0" },
+	{ 0x4d, 0, "csiiw1" },
+	{ 0x4e, 0, "mipicsi0" },
+	{ 0x4f, 0, "mipicsi1" },
+	{ 0x50, 0, "hdmi_tx" },
+	{ 0x55, 0, "vpost" },
+	{ 0x60, 0, "tgen" },
+	{ 0x61, 0, "dmix" },
+	{ 0x6a, 0, "tcon" },
+	{ 0x73, 0, "gpio" },
+	{ 0x86, 0, "mailbox" },
+	{ 0x8a, 0, "spind" },
+	{ 0x8b, 0, "i2c2cbus" },
+	{ 0x8d, 0, "sec" },
+	{ 0x8e, 0, "dve" },
+	{ 0x8f, 0, "gpost0" },
+	{ 0x90, 0, "osd0" },
+	{ 0x92, 0, "disp_pwm" },
+	{ 0x93, 0, "uadbg" },
+	{ 0x95, 0, "fio_ctl" },
+	{ 0x96, 0, "fpga" },
+	{ 0x97, 0, "l2sw" },
+	{ 0x98, 0, "icm" },
 };
 
 /*
@@ -133,15 +130,17 @@ static const struct sp_clk_gate_info sp_clk_gates[] = {
  * marked CLK_IS_CRITICAL so clk_disable_unused() never gates them.
  */
 static const struct sp_clk_gate_info sp_clk_infra[] = {
-	{ 0x00, 0, true, "system" },	/* SYSTEM CLKEN    mo_clken0 bit 0  */
-	{ 0x03, 0, true, "ioctl" },	/* IOCTL CLKEN     mo_clken0 bit 3  */
-	{ 0x04, 0, true, "iop" },	/* IOP CLKEN       mo_clken0 bit 4  */
-	{ 0x08, 0, true, "rbus" },	/* RBUS_L00 CLKEN  mo_clken0 bit 8  */
-	{ 0x0a, 0, true, "sdctrl0" },	/* SDCTRL0 CLKEN   mo_clken0 bit 10 */
-	{ 0x0d, 0, true, "a926" },	/* A926 CLKEN      mo_clken0 bit 13 */
-	{ 0x0e, 0, true, "umctl2" },	/* UMCTL2 CLKEN    mo_clken0 bit 14 */
-	{ 0x10, 0, true, "ddrphy0" },	/* DDR PHY0 CLKEN  mo_clken1 bit 0  */
-	{ 0x12, 0, true, "tracer" },	/* TRACER CLKEN    mo_clken1 bit 2  */
+	{ 0x06, 0, "noc" },	/* NOC CLKEN       mo_clken0 bit 6  — bus interconnect */
+	{ 0x99, 0, "axi_global" },/* AXI GLOBAL CLKEN mo_clken9 bit 9 — AXI interconnect */
+	{ 0x00, 0, "system" },	/* SYSTEM CLKEN    mo_clken0 bit 0  */
+	{ 0x03, 0, "ioctl" },	/* IOCTL CLKEN     mo_clken0 bit 3  */
+	{ 0x04, 0, "iop" },	/* IOP CLKEN       mo_clken0 bit 4  */
+	{ 0x08, 0, "rbus" },	/* RBUS_L00 CLKEN  mo_clken0 bit 8  */
+	{ 0x0a, 0, "sdctrl0" },	/* SDCTRL0 CLKEN   mo_clken0 bit 10 */
+	{ 0x0d, 0, "a926" },	/* A926 CLKEN      mo_clken0 bit 13 */
+	{ 0x0e, 0, "umctl2" },	/* UMCTL2 CLKEN    mo_clken0 bit 14 */
+	{ 0x10, 0, "ddrphy0" },	/* DDR PHY0 CLKEN  mo_clken1 bit 0  */
+	{ 0x12, 0, "tracer" },	/* TRACER CLKEN    mo_clken1 bit 2  */
 };
 
 #define _M		1000000UL
@@ -699,7 +698,7 @@ static int sp7021_clk_probe(struct platform_device *pdev)
 		struct clk_parent_data *pd = sp_clk_gates[i].ext_parent ? &pd_ext : &pd_sys;
 
 		hws[i] = devm_clk_hw_register_gate_parent_data(dev, sp_clk_gates[i].name, pd,
-							       sp_clk_gates[i].critical ? CLK_IS_CRITICAL : 0,
+							       0,
 							       clk_base + (j >> 4) * 4,
 							       j & 0x0f,
 							       CLK_GATE_HIWORD_MASK,
