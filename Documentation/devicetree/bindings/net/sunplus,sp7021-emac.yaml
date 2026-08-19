@@ -25,7 +25,18 @@ properties:
     maxItems: 1
 
   clocks:
-    maxItems: 1
+    items:
+      - description: L2SW AXI gate clock
+      - description: PLLE 25 MHz output (MII 100M)
+      - description: PLLE 2.5 MHz output (MII 10M)
+      - description: PLLE 112.5 MHz output (MAC fabric)
+
+  clock-names:
+    items:
+      - const: l2sw
+      - const: plle_25
+      - const: plle_2p5
+      - const: plle_112p5
 
   resets:
     maxItems: 1
@@ -101,7 +112,8 @@ examples:
         reg = <0x9c108000 0x400>;
         interrupt-parent = <&intc>;
         interrupts = <66 IRQ_TYPE_LEVEL_HIGH>;
-        clocks = <&clkc 0xa7>;
+        clocks = <&clkc 0xa7>, <&clkc 0x43>, <&clkc 0x42>, <&clkc 0x44>;
+        clock-names = "l2sw", "plle_25", "plle_2p5", "plle_112p5";
         resets = <&rstc 0x97>;
         pinctrl-0 = <&emac_demo_board_v3_pins>;
         pinctrl-names = "default";

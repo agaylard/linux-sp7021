@@ -63,66 +63,66 @@ static const struct sp_clk_gate_info sp_clk_gates[] = {
 	{ 0x02 },
 	{ 0x05 },
 	{ 0x06, 0, true },	/* CLK_NOC:        bus interconnect, no driver consumer */
-	{ 0x07 },
-	{ 0x09 },
-	{ 0x0b, 1 },
-	{ 0x0f, 1 },
-	{ 0x14 },
-	{ 0x15 },
-	{ 0x16 },
-	{ 0x17 },
-	{ 0x18, 1 },
-	{ 0x19, 1 },
-	{ 0x1a, 1 },
-	{ 0x1b, 1 },
-	{ 0x1c, 1 },
-	{ 0x1d, 1 },
-	{ 0x1e },
-	{ 0x1f, 1 },
-	{ 0x20 },
-	{ 0x21 },
-	{ 0x22 },
-	{ 0x23 },
-	{ 0x24 },
-	{ 0x25 },
-	{ 0x26 },
-	{ 0x2a },
-	{ 0x2b },
-	{ 0x2d },
-	{ 0x2e },
-	{ 0x30 },
-	{ 0x31 },
-	{ 0x32 },
-	{ 0x33 },
-	{ 0x3d },
-	{ 0x3e },
-	{ 0x3f },
-	{ 0x42 },
-	{ 0x44 },
-	{ 0x4b },
-	{ 0x4c },
-	{ 0x4d },
-	{ 0x4e },
-	{ 0x4f },
-	{ 0x50 },
-	{ 0x55 },
-	{ 0x60 },
-	{ 0x61 },
-	{ 0x6a },
-	{ 0x73 },
-	{ 0x86 },
-	{ 0x8a },
-	{ 0x8b },
-	{ 0x8d },
-	{ 0x8e },
-	{ 0x8f },
-	{ 0x90 },
-	{ 0x92 },
-	{ 0x93 },
-	{ 0x95 },
-	{ 0x96 },
+	{ 0x07 },		/* CLK_BR */
+	{ 0x09 },		/* CLK_SPIFL */
+	{ 0x0b, 1 },		/* CLK_PERI0 */
+	{ 0x0f, 1 },		/* CLK_PERI1 */
+	{ 0x14 },		/* CLK_STC0 */
+	{ 0x15 },		/* CLK_STC_AV0 */
+	{ 0x16 },		/* CLK_STC_AV1 */
+	{ 0x17 },		/* CLK_STC_AV2 */
+	{ 0x18, 1 },		/* CLK_UA0 */
+	{ 0x19, 1 },		/* CLK_UA1 */
+	{ 0x1a, 1 },		/* CLK_UA2 */
+	{ 0x1b, 1 },		/* CLK_UA3 */
+	{ 0x1c, 1 },		/* CLK_UA4 */
+	{ 0x1d, 1 },		/* CLK_HWUA */
+	{ 0x1e },		/* CLK_DDC0 */
+	{ 0x1f, 1 },		/* CLK_UADMA */
+	{ 0x20 },		/* CLK_CBDMA0 */
+	{ 0x21 },		/* CLK_CBDMA1 */
+	{ 0x22 },		/* CLK_SPI_COMBO_0 */
+	{ 0x23 },		/* CLK_SPI_COMBO_1 */
+	{ 0x24 },		/* CLK_SPI_COMBO_2 */
+	{ 0x25 },		/* CLK_SPI_COMBO_3 */
+	{ 0x26 },		/* CLK_AUD */
+	{ 0x2a },		/* CLK_USBC0 */
+	{ 0x2b },		/* CLK_USBC1 */
+	{ 0x2d },		/* CLK_UPHY0 */
+	{ 0x2e },		/* CLK_UPHY1 */
+	{ 0x30 },		/* CLK_I2CM0 */
+	{ 0x31 },		/* CLK_I2CM1 */
+	{ 0x32 },		/* CLK_I2CM2 */
+	{ 0x33 },		/* CLK_I2CM3 */
+	{ 0x3d },		/* CLK_PMC */
+	{ 0x3e },		/* CLK_CARD_CTL0 */
+	{ 0x3f },		/* CLK_CARD_CTL1 */
+	{ 0x42 },		/* CLK_CARD_CTL4 */
+	{ 0x44 },		/* CLK_BCH */
+	{ 0x4b },		/* CLK_DDFCH */
+	{ 0x4c },		/* CLK_CSIIW0 */
+	{ 0x4d },		/* CLK_CSIIW1 */
+	{ 0x4e },		/* CLK_MIPICSI0 */
+	{ 0x4f },		/* CLK_MIPICSI1 */
+	{ 0x50 },		/* CLK_HDMI_TX */
+	{ 0x55 },		/* CLK_VPOST */
+	{ 0x60 },		/* CLK_TGEN */
+	{ 0x61 },		/* CLK_DMIX */
+	{ 0x6a },		/* CLK_TCON */
+	{ 0x73 },		/* CLK_GPIO */
+	{ 0x86 },		/* CLK_MAILBOX */
+	{ 0x8a },		/* CLK_SPIND */
+	{ 0x8b },		/* CLK_I2C2CBUS */
+	{ 0x8d },		/* CLK_SEC */
+	{ 0x8e },		/* CLK_DVE */
+	{ 0x8f },		/* CLK_GPOST0 */
+	{ 0x90 },		/* CLK_OSD0 */
+	{ 0x92 },		/* CLK_DISP_PWM */
+	{ 0x93 },		/* CLK_UADBG */
+	{ 0x95 },		/* CLK_FIO_CTL */
+	{ 0x96 },		/* CLK_FPGA */
 	{ 0x97 },
-	{ 0x98 },
+	{ 0x98 },		/* CLK_ICM: Input Capture Module */
 	{ 0x99, 0, true },	/* CLK_AXI_GLOBAL: AXI interconnect, no driver consumer */
 	/* Infrastructure clocks: all default to enabled in hardware but
 	 * have no driver consumer, so marked critical to prevent gating.
@@ -641,21 +641,28 @@ static int sp7021_clk_probe(struct platform_device *pdev)
 	if (IS_ERR(hws[PLL_A]))
 		return PTR_ERR(hws[PLL_A]);
 
+	/*
+	 * PLLE and all its sub-outputs are used by the L2SW Ethernet switch
+	 * (50MHz RMII, 25MHz MII/100M, 2.5MHz MII/10M, 112.5MHz MAC fabric).
+	 * The L2SW driver explicitly claims these via clock-names in DTS, but
+	 * CLK_IS_CRITICAL is kept as a belt-and-suspenders guard in case the
+	 * driver consumer reference isn't sufficient on all board configurations.
+	 */
 	hws[PLL_E] = sp_pll_register(dev, "plle", &pd_ext, PLLE_CTL,
-				     6, 2, 50000000, 0, 0, 0);
+				     6, 2, 50000000, 0, 0, CLK_IS_CRITICAL);
 	if (IS_ERR(hws[PLL_E]))
 		return PTR_ERR(hws[PLL_E]);
 	pd_e.hw = hws[PLL_E];
 	hws[PLL_E_2P5] = sp_pll_register(dev, "plle_2p5", &pd_e, PLLE_CTL,
-					 13, -1, 2500000, 0, 0, 0);
+					 13, -1, 2500000, 0, 0, CLK_IS_CRITICAL);
 	if (IS_ERR(hws[PLL_E_2P5]))
 		return PTR_ERR(hws[PLL_E_2P5]);
 	hws[PLL_E_25] = sp_pll_register(dev, "plle_25", &pd_e, PLLE_CTL,
-					12, -1, 25000000, 0, 0, 0);
+					12, -1, 25000000, 0, 0, CLK_IS_CRITICAL);
 	if (IS_ERR(hws[PLL_E_25]))
 		return PTR_ERR(hws[PLL_E_25]);
 	hws[PLL_E_112P5] = sp_pll_register(dev, "plle_112p5", &pd_e, PLLE_CTL,
-					   11, -1, 112500000, 0, 0, 0);
+					   11, -1, 112500000, 0, 0, CLK_IS_CRITICAL);
 	if (IS_ERR(hws[PLL_E_112P5]))
 		return PTR_ERR(hws[PLL_E_112P5]);
 
