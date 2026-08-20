@@ -8,6 +8,7 @@
  */
 
 #include <linux/delay.h>
+#include <linux/soc/sunplus/sp7021.h>
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/io.h>
@@ -98,7 +99,7 @@ static void iop_load_and_start(void __iomem *iopbase,
 	memunmap(sram);
 
 	/* Enable IOP clock: MOON0 CLKEN[0] bit 4 (Moon register format) */
-	writel(0x00100010, MOON0_CLKEN0);
+	writel(MOON_REG_SET(4), MOON0_CLKEN0);
 
 	/* Assert IOP reset (bit 0 = 1), clear boot-ROM select (bit 15 = 0) */
 	reg = readl(&r->iop_control);
@@ -189,7 +190,7 @@ static void iop_pmc_setup(void __iomem *iopbase, void __iomem *pmcbase)
 	struct regs_iop_pmc_t *pmc = (struct regs_iop_pmc_t *)pmcbase;
 	u32 reg;
 
-	writel(0x00100010, MOON0_CLKEN0);
+	writel(MOON_REG_SET(4), MOON0_CLKEN0);
 
 	/* Assert reset (bit 0=1), clear boot-ROM (bit 15=0) */
 	reg = readl(&r->iop_control);
@@ -210,8 +211,8 @@ static void iop_pmc_setup(void __iomem *iopbase, void __iomem *pmcbase)
 	writel(0x01000100, &pmc->PMC_TIMER2);
 
 	/* IOP hardware IP reset pulse (Moon register bit 4) */
-	writel(0x00100010, MOON0_RESET0);
-	writel(0x00100000, MOON0_RESET0);
+	writel(MOON_REG_SET(4), MOON0_RESET0);
+	writel(MOON_REG_CLR(4), MOON0_RESET0);
 
 	/*
 	 * Enable IOP clocks in MOON1. The original write 0x00ff0085 used a
@@ -219,8 +220,8 @@ static void iop_pmc_setup(void __iomem *iopbase, void __iomem *pmcbase)
 	 * CPU clocks and causing RCU stalls. Use individual bit masks to only
 	 * SET bits 7, 2, 0 without touching other bits.
 	 */
-	writel(0x00850085, MOON1_CLKEN0); /* set bits 7,2,0 only — no broad clear */
-	writel(0x08000800, MOON1_CLKEN1); /* set bit 11 */
+	writel(MOON_REG_WRITE(BIT(7)|BIT(2)|BIT(0), BIT(7)|BIT(2)|BIT(0)), MOON1_CLKEN0);
+	writel(MOON_REG_SET(11), MOON1_CLKEN1);
 
 	/* Disable watchdog-event reset (bit 9 = 1) */
 	reg = readl(&r->iop_control);

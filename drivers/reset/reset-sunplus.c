@@ -12,9 +12,8 @@
 #include <linux/platform_device.h>
 #include <linux/reset-controller.h>
 #include <linux/reboot.h>
+#include <linux/soc/sunplus/sp7021.h>
 
-/* HIWORD_MASK_REG BITS */
-#define BITS_PER_HWM_REG	16
 
 /* resets HW info: reg_index_shift */
 static const u32 sp_resets[] = {
@@ -112,12 +111,11 @@ static int sp_reset_update(struct reset_controller_dev *rcdev,
 			   unsigned long id, bool assert)
 {
 	struct sp_reset *reset = to_sp_reset(rcdev);
-	int index = sp_resets[id] / BITS_PER_HWM_REG;
-	int shift = sp_resets[id] % BITS_PER_HWM_REG;
-	u32 val;
+	int index = sp_resets[id] / MOON_REG_MASK_SHIFT;
+	int shift = sp_resets[id] % MOON_REG_MASK_SHIFT;
 
-	val = (1 << (16 + shift)) | (assert << shift);
-	writel(val, reset->base + (index * 4));
+	writel(MOON_REG_WRITE(BIT(shift), assert ? BIT(shift) : 0),
+	       reset->base + (index * 4));
 
 	return 0;
 }
@@ -138,8 +136,8 @@ static int sp_reset_status(struct reset_controller_dev *rcdev,
 			   unsigned long id)
 {
 	struct sp_reset *reset = to_sp_reset(rcdev);
-	int index = sp_resets[id] / BITS_PER_HWM_REG;
-	int shift = sp_resets[id] % BITS_PER_HWM_REG;
+	int index = sp_resets[id] / MOON_REG_MASK_SHIFT;
+	int shift = sp_resets[id] % MOON_REG_MASK_SHIFT;
 	u32 reg;
 
 	reg = readl(reset->base + (index * 4));
@@ -181,7 +179,7 @@ static int sp_reset_probe(struct platform_device *pdev)
 	reset->rcdev.ops = &sp_reset_ops;
 	reset->rcdev.owner = THIS_MODULE;
 	reset->rcdev.of_node = dev->of_node;
-	reset->rcdev.nr_resets = resource_size(res) / 4 * BITS_PER_HWM_REG;
+	reset->rcdev.nr_resets = resource_size(res) / 4 * MOON_REG_MASK_SHIFT;
 
 	ret = devm_reset_controller_register(dev, &reset->rcdev);
 	if (ret)

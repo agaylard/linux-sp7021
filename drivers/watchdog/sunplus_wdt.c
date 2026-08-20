@@ -12,6 +12,7 @@
 #include <linux/mod_devicetable.h>
 #include <linux/platform_device.h>
 #include <linux/reset.h>
+#include <linux/soc/sunplus/sp7021.h>
 #include <linux/watchdog.h>
 
 #define WDT_CTRL		0x00
@@ -25,9 +26,8 @@
 #define WDT_CONMAX		0xDEAF
 
 /* mo4 misc ctl 0 (G4.29): bit 4 enables STC watchdog timeout to trigger system reset.
- * Default is 0 (disabled). Uses mask-write format: bits[31:16] are write-enables. */
+ * Default is 0 (disabled). Uses Moon mask-write format. */
 #define WDT_MISC_CTL_RST_EN	BIT(4)
-#define WDT_MASK_SET(b)		((b) | ((b) << 16))
 
 /* TIMEOUT_MAX = ffff0/90kHz =11.65, so longer than 11 seconds will time out. */
 #define SP_WDT_MAX_TIMEOUT	11U
@@ -191,7 +191,7 @@ static int sp_wdt_probe(struct platform_device *pdev)
 
 		if (IS_ERR(misc_ctl))
 			return PTR_ERR(misc_ctl);
-		writel(WDT_MASK_SET(WDT_MISC_CTL_RST_EN), misc_ctl);
+		writel(MOON_REG_WRITE(WDT_MISC_CTL_RST_EN, WDT_MISC_CTL_RST_EN), misc_ctl);
 	}
 
 	priv->wdev.info = &sp_wdt_info;
