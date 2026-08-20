@@ -16,21 +16,16 @@
 #include <linux/platform_device.h>
 #include <linux/reset.h>
 #include <linux/rtc.h>
+#include <linux/soc/sunplus/sp7021.h>
 
 #define RTC_REG_NAME			"rtc"
 
 #define RTC_CTRL			0x40
-#define TIMER_FREEZE_MASK_BIT		BIT(5 + 16)
 #define TIMER_FREEZE			BIT(5)
-#define DIS_SYS_RST_RTC_MASK_BIT	BIT(4 + 16)
 #define DIS_SYS_RST_RTC			BIT(4)
-#define RTC32K_MODE_RESET_MASK_BIT	BIT(3 + 16)
 #define RTC32K_MODE_RESET		BIT(3)
-#define ALARM_EN_OVERDUE_MASK_BIT	BIT(2 + 16)
 #define ALARM_EN_OVERDUE		BIT(2)
-#define ALARM_EN_PMC_MASK_BIT		BIT(1 + 16)
 #define ALARM_EN_PMC			BIT(1)
-#define ALARM_EN_MASK_BIT		BIT(0 + 16)
 #define ALARM_EN			BIT(0)
 #define RTC_TIMER_OUT			0x44
 #define RTC_DIVIDER			0x48
@@ -39,17 +34,14 @@
 #define RTC_USER_DATA			0x54
 #define RTC_RESET_RECORD		0x58
 #define RTC_BATT_CHARGE_CTRL		0x5c
-#define BAT_CHARGE_RSEL_MASK_BIT	GENMASK(3 + 16, 2 + 16)
 #define BAT_CHARGE_RSEL_MASK		GENMASK(3, 2)
 #define BAT_CHARGE_RSEL_2K_OHM		FIELD_PREP(BAT_CHARGE_RSEL_MASK, 0)
 #define BAT_CHARGE_RSEL_250_OHM		FIELD_PREP(BAT_CHARGE_RSEL_MASK, 1)
 #define BAT_CHARGE_RSEL_50_OHM		FIELD_PREP(BAT_CHARGE_RSEL_MASK, 2)
 #define BAT_CHARGE_RSEL_0_OHM		FIELD_PREP(BAT_CHARGE_RSEL_MASK, 3)
-#define BAT_CHARGE_DSEL_MASK_BIT	BIT(1 + 16)
 #define BAT_CHARGE_DSEL_MASK		GENMASK(1, 1)
 #define BAT_CHARGE_DSEL_ON		FIELD_PREP(BAT_CHARGE_DSEL_MASK, 0)
 #define BAT_CHARGE_DSEL_OFF		FIELD_PREP(BAT_CHARGE_DSEL_MASK, 1)
-#define BAT_CHARGE_EN_MASK_BIT		BIT(0 + 16)
 #define BAT_CHARGE_EN			BIT(0)
 #define RTC_TRIM_CTRL			0x60
 
@@ -132,14 +124,13 @@ static int sp_rtc_alarm_irq_enable(struct device *dev, unsigned int enabled)
 	struct sunplus_rtc *sp_rtc = dev_get_drvdata(dev);
 
 	if (enabled)
-		writel((TIMER_FREEZE_MASK_BIT | DIS_SYS_RST_RTC_MASK_BIT |
-			RTC32K_MODE_RESET_MASK_BIT | ALARM_EN_OVERDUE_MASK_BIT |
-			ALARM_EN_PMC_MASK_BIT | ALARM_EN_MASK_BIT) |
-			(DIS_SYS_RST_RTC | ALARM_EN_OVERDUE | ALARM_EN_PMC | ALARM_EN),
+		writel(MOON_REG_WRITE(TIMER_FREEZE | DIS_SYS_RST_RTC | RTC32K_MODE_RESET |
+				      ALARM_EN_OVERDUE | ALARM_EN_PMC | ALARM_EN,
+				      DIS_SYS_RST_RTC | ALARM_EN_OVERDUE | ALARM_EN_PMC | ALARM_EN),
 			sp_rtc->reg_base + RTC_CTRL);
 	else
-		writel((ALARM_EN_OVERDUE_MASK_BIT | ALARM_EN_PMC_MASK_BIT | ALARM_EN_MASK_BIT) |
-			0x0, sp_rtc->reg_base + RTC_CTRL);
+		writel(MOON_REG_WRITE(ALARM_EN_OVERDUE | ALARM_EN_PMC | ALARM_EN, 0),
+			sp_rtc->reg_base + RTC_CTRL);
 
 	return 0;
 }
@@ -207,15 +198,15 @@ static void sp_rtc_set_trickle_charger(struct device dev)
 		return;
 	}
 
-	writel(BAT_CHARGE_RSEL_MASK_BIT | rsel, sp_rtc->reg_base + RTC_BATT_CHARGE_CTRL);
+	writel(MOON_REG_WRITE(BAT_CHARGE_RSEL_MASK, rsel), sp_rtc->reg_base + RTC_BATT_CHARGE_CTRL);
 
 	switch (chargeable) {
 	case 0:
-		writel(BAT_CHARGE_DSEL_MASK_BIT | BAT_CHARGE_DSEL_OFF,
+		writel(MOON_REG_WRITE(BAT_CHARGE_DSEL_MASK, BAT_CHARGE_DSEL_OFF),
 		       sp_rtc->reg_base + RTC_BATT_CHARGE_CTRL);
 		break;
 	case 1:
-		writel(BAT_CHARGE_DSEL_MASK_BIT | BAT_CHARGE_DSEL_ON,
+		writel(MOON_REG_WRITE(BAT_CHARGE_DSEL_MASK, BAT_CHARGE_DSEL_ON),
 		       sp_rtc->reg_base + RTC_BATT_CHARGE_CTRL);
 		break;
 	default:
@@ -223,7 +214,7 @@ static void sp_rtc_set_trickle_charger(struct device dev)
 		return;
 	}
 
-	writel(BAT_CHARGE_EN_MASK_BIT | BAT_CHARGE_EN, sp_rtc->reg_base + RTC_BATT_CHARGE_CTRL);
+	writel(MOON_REG_WRITE(BAT_CHARGE_EN, BAT_CHARGE_EN), sp_rtc->reg_base + RTC_BATT_CHARGE_CTRL);
 }
 
 static int sp_rtc_probe(struct platform_device *plat_dev)
@@ -291,7 +282,7 @@ static int sp_rtc_probe(struct platform_device *plat_dev)
 		sp_rtc_set_trickle_charger(plat_dev->dev);
 
 	/* Keep RTC from system reset */
-	writel(DIS_SYS_RST_RTC_MASK_BIT | DIS_SYS_RST_RTC, sp_rtc->reg_base + RTC_CTRL);
+	writel(MOON_REG_WRITE(DIS_SYS_RST_RTC, DIS_SYS_RST_RTC), sp_rtc->reg_base + RTC_CTRL);
 
 	return 0;
 
