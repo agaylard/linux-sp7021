@@ -9,6 +9,7 @@
 
 #include <linux/bits.h>
 #include <linux/gpio/driver.h>
+#include <linux/soc/sunplus/sp7021.h>
 #include <linux/kernel.h>
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/spinlock.h>
@@ -29,24 +30,6 @@
 #define SPPCTL_FULLY_PINMUX_SEL_MASK	GENMASK(6, 0)
 #define SPPCTL_FULLY_PINMUX_UPPER_SHIFT	8
 
-/*
- * Mask-fields and control-fields of MOON registers of SP7021 are
- * arranged as shown below:
- *
- *  register |  mask-fields | control-fields
- * ----------+--------------+----------------
- *  base[0]  |  (31 : 16)   |   (15 : 0)
- *  base[1]  |  (31 : 24)   |   (15 : 0)
- *  base[2]  |  (31 : 24)   |   (15 : 0)
- *     :     |      :       |       :
- *
- * where mask-fields are used to protect control-fields from write-in
- * accidentally. Set the corresponding bits in the mask-field before
- * you write a value into a control-field.
- */
-#define SPPCTL_MOON_REG_MASK_SHIFT	16
-#define SPPCTL_SET_MOON_REG_BIT(bit)	(BIT((bit) + SPPCTL_MOON_REG_MASK_SHIFT) | BIT(bit))
-#define SPPCTL_CLR_MOON_REG_BIT(bit)	BIT((bit) + SPPCTL_MOON_REG_MASK_SHIFT)
 
 #define SPPCTL_IOP_CONFIGS		0xff
 

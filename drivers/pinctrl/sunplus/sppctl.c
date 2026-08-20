@@ -144,9 +144,9 @@ static inline u32 sppctl_prep_moon_reg_and_offset(unsigned int offset, u32 *reg_
 
 	bit_off = sppctl_get_moon_reg_and_bit_offset(offset, reg_off);
 	if (val)
-		return SPPCTL_SET_MOON_REG_BIT(bit_off);
+		return MOON_REG_SET(bit_off);
 	else
-		return SPPCTL_CLR_MOON_REG_BIT(bit_off);
+		return MOON_REG_CLR(bit_off);
 }
 
 /**
@@ -236,7 +236,7 @@ static void sppctl_gmx_set(struct sppctl_pdata *pctl, u8 reg_off, u8 bit_off, u8
 	 * word are the control-fields. Set corresponding bits in mask-
 	 * field before write to a control-field.
 	 */
-	mask = GENMASK(bit_sz - 1, 0) << SPPCTL_MOON_REG_MASK_SHIFT;
+	mask = GENMASK(bit_sz - 1, 0) << MOON_REG_MASK_SHIFT;
 	reg = (mask | val) << bit_off;
 
 	writel(reg, pctl->moon1_base + reg_off * 4);
