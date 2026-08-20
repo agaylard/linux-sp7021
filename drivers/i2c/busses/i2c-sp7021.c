@@ -21,6 +21,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/platform_device.h>
 #include <linux/reset.h>
+#include <linux/soc/sunplus/sp7021.h>
 
 #define SP_I2C_STD_FREQ				100
 #define SP_I2C_FAST_FREQ			400
@@ -138,9 +139,9 @@
 #define SP_I2C_POWER_RESET3			0x0060
 
 /* Moon-format writes for the shared DMA power registers (id=0 always) */
-#define SP_I2C_CLKEN0_EN	0x00010001	/* write-enable bit 0, set bit 0 */
-#define SP_I2C_GCLKEN0_DIS	0x00010000	/* write-enable bit 0, clear bit 0 */
-#define SP_I2C_RESET0_DEASSERT	0x00010000	/* write-enable bit 0, clear bit 0 */
+#define SP_I2C_CLKEN0_EN	MOON_REG_SET(0)
+#define SP_I2C_GCLKEN0_DIS	MOON_REG_CLR(0)
+#define SP_I2C_RESET0_DEASSERT	MOON_REG_CLR(0)
 
 enum sp_state_e_ {
 	SPI2C_SUCCESS = 0,

@@ -18,11 +18,7 @@
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/reset.h>
-
-/* Mask-write helpers (SP7021 register format: bits 31:16 = mask, bits 15:0 = value) */
-#define RF_MASK_V(mask, val)		(((mask) << 16) | (val))
-#define RF_MASK_V_SET(bits)		RF_MASK_V(bits, bits)
-#define RF_MASK_V_CLR(bits)		RF_MASK_V(bits, 0)
+#include <linux/soc/sunplus/sp7021.h>
 
 /* GROUP UPHY (phy_regs offsets) */
 #define DISC_LEVEL_OFFSET		0x1c	/* CONFIG7 */
@@ -40,22 +36,32 @@
 #define UPHY_INTER_SIGNAL_REG_OFFSET	0xc	/* CONFIG3 */
 
 /* GROUP MOON0 (moon0_regs offsets) */
-#define USB_RESET_OFFSET		0x5c	/* G0.23 */
-#define UPHY0_RST_BIT			BIT(13)
-#define USBC0_RST_BIT			BIT(10)
-#define UPHY1_RST_BIT			BIT(14)	/* G0.23 bit 14 for UPHY1 */
-#define USBC1_RST_BIT			BIT(11)	/* G0.23 bit 11 for USBC1 */
+#define USB_RESET_OFFSET		0x5c	/* G0.23 mo_reset2 */
+#define UPHY0_RST_BIT			13	/* UPHY0 RESET */
+#define USBC0_RST_BIT			10	/* USBC0 RESET */
+#define UPHY1_RST_BIT			14	/* UPHY1 RESET */
+#define USBC1_RST_BIT			11	/* USBC1 RESET */
 
 /* GROUP MOON4 (moon4_regs offsets, from G4.0 base = 0x9c000200) */
-#define USBC_CTL_OFFSET			0x44	/* G4.17 */
-#define UPHY0_CTL0_OFFSET		0x48	/* G4.18 */
-#define UPHY0_CTL1_OFFSET		0x4c	/* G4.19 */
-#define UPHY0_CTL2_OFFSET		0x50	/* G4.20 */
-#define UPHY0_CTL3_OFFSET		0x54	/* G4.21 */
-#define UPHY1_CTL0_OFFSET		0x58	/* G4.22 */
-#define UPHY1_CTL1_OFFSET		0x5c	/* G4.23 */
-#define UPHY1_CTL2_OFFSET		0x60	/* G4.24 */
-#define UPHY1_CTL3_OFFSET		0x64	/* G4.25 */
+#define USBC_CTL_OFFSET			0x44	/* G4.17 mo4 usbc ctl */
+#define  USBC_CTL_USBC0_OTG_CTRL_BIT	4	/* MO1 USBC0 USB0 CTRL */
+#define  USBC_CTL_USBC1_OTG_SEL_BIT	13	/* MO1 USBC1 USB0 SEL */
+#define  USBC_CTL_USBC1_OTG_CTRL_BIT	12	/* MO1 USBC1 USB0 CTRL */
+
+#define UPHY0_CTL0_OFFSET		0x48	/* G4.18 mo4 uphy0 ctl0 */
+#define UPHY0_CTL1_OFFSET		0x4c	/* G4.19 mo4 uphy0 ctl1 */
+#define UPHY0_CTL2_OFFSET		0x50	/* G4.20 mo4 uphy0 ctl2 */
+#define  UPHY_CTL2_RX_CLK_SEL_BIT	6	/* MO1 UPHYx RX CLK SEL */
+#define UPHY0_CTL3_OFFSET		0x54	/* G4.21 mo4 uphy0 ctl3 */
+#define  UPHY_CTL3_PLL_PWR_SEL_BIT	7	/* MO1 UPHYx PLL POWER OFF SEL */
+#define  UPHY_CTL3_PLL_PWR_OFF_BIT	3	/* MO1 UPHYx PLL POWER OFF */
+#define  UPHY_CTL3_ACB_DEFAULT_BIT	11	/* MO1 UPHYx ACB[2]: 1.3684mA discharge */
+#define  UPHY_CTL3_AC_DEFAULT_BIT	14	/* MO1 UPHYx AC[2]: 1.3684mA charge */
+
+#define UPHY1_CTL0_OFFSET		0x58	/* G4.22 mo4 uphy1 ctl0 */
+#define UPHY1_CTL1_OFFSET		0x5c	/* G4.23 mo4 uphy1 ctl1 */
+#define UPHY1_CTL2_OFFSET		0x60	/* G4.24 mo4 uphy1 ctl2 */
+#define UPHY1_CTL3_OFFSET		0x64	/* G4.25 mo4 uphy1 ctl3 */
 
 struct sp_usbphy {
 	struct device		*dev;
@@ -106,24 +112,32 @@ static int sp_uphy_init(struct phy *phy)
 	u32 val;
 
 	/* 1. Reset UPHY */
-	writel(RF_MASK_V_SET(uphy_rst_bit), usbphy->moon0_regs + USB_RESET_OFFSET);
-	writel(RF_MASK_V_CLR(uphy_rst_bit), usbphy->moon0_regs + USB_RESET_OFFSET);
+	writel(MOON_REG_SET(uphy_rst_bit), usbphy->moon0_regs + USB_RESET_OFFSET);
+	writel(MOON_REG_CLR(uphy_rst_bit), usbphy->moon0_regs + USB_RESET_OFFSET);
 	mdelay(1);
 
 	/* 2. Default value modification (MOON4 UPHY CTL0/1) */
-	writel(RF_MASK_V(0xffff, 0x4002), usbphy->moon4_regs + ctl0_off);
-	writel(RF_MASK_V(0xffff, 0x8747), usbphy->moon4_regs + ctl1_off);
+	writel(MOON_REG_WRITE(0xffff, 0x4002), usbphy->moon4_regs + ctl0_off);
+	writel(MOON_REG_WRITE(0xffff, 0x8747), usbphy->moon4_regs + ctl1_off);
 
 	/* 3. PLL power off/on twice (MOON4 UPHY CTL3) */
-	writel(RF_MASK_V(0xffff, 0x88), usbphy->moon4_regs + ctl3_off);
+	writel(MOON_REG_WRITE(BIT(UPHY_CTL3_PLL_PWR_SEL_BIT) | BIT(UPHY_CTL3_PLL_PWR_OFF_BIT),
+			  BIT(UPHY_CTL3_PLL_PWR_SEL_BIT) | BIT(UPHY_CTL3_PLL_PWR_OFF_BIT)),
+		       usbphy->moon4_regs + ctl3_off);
 	mdelay(1);
-	writel(RF_MASK_V(0xffff, 0x80), usbphy->moon4_regs + ctl3_off);
+	writel(MOON_REG_WRITE(BIT(UPHY_CTL3_PLL_PWR_SEL_BIT) | BIT(UPHY_CTL3_PLL_PWR_OFF_BIT),
+			  BIT(UPHY_CTL3_PLL_PWR_SEL_BIT)),
+		       usbphy->moon4_regs + ctl3_off);
 	mdelay(1);
-	writel(RF_MASK_V(0xffff, 0x88), usbphy->moon4_regs + ctl3_off);
+	writel(MOON_REG_WRITE(BIT(UPHY_CTL3_PLL_PWR_SEL_BIT) | BIT(UPHY_CTL3_PLL_PWR_OFF_BIT),
+			  BIT(UPHY_CTL3_PLL_PWR_SEL_BIT) | BIT(UPHY_CTL3_PLL_PWR_OFF_BIT)),
+		       usbphy->moon4_regs + ctl3_off);
 	mdelay(1);
-	writel(RF_MASK_V(0xffff, 0x80), usbphy->moon4_regs + ctl3_off);
+	writel(MOON_REG_WRITE(BIT(UPHY_CTL3_PLL_PWR_SEL_BIT) | BIT(UPHY_CTL3_PLL_PWR_OFF_BIT),
+			  BIT(UPHY_CTL3_PLL_PWR_SEL_BIT)),
+		       usbphy->moon4_regs + ctl3_off);
 	mdelay(1);
-	writel(RF_MASK_V(0xffff, 0x00), usbphy->moon4_regs + ctl3_off);
+	writel(MOON_REG_CLR(UPHY_CTL3_PLL_PWR_SEL_BIT), usbphy->moon4_regs + ctl3_off);
 
 	/* 4. PHY internal register modifications */
 	update_disc_vol(usbphy);
@@ -141,23 +155,23 @@ static int sp_uphy_init(struct phy *phy)
 	writel(val, usbphy->phy_regs + APHY_PROBE_OFFSET);
 
 	/* 5. Reset USBC */
-	writel(RF_MASK_V_SET(usbc_rst_bit), usbphy->moon0_regs + USB_RESET_OFFSET);
-	writel(RF_MASK_V_CLR(usbc_rst_bit), usbphy->moon0_regs + USB_RESET_OFFSET);
+	writel(MOON_REG_SET(usbc_rst_bit), usbphy->moon0_regs + USB_RESET_OFFSET);
+	writel(MOON_REG_CLR(usbc_rst_bit), usbphy->moon0_regs + USB_RESET_OFFSET);
 
 	/* 6. UPHY clock fix (set RX_CLK_SEL in CTL2) */
-	writel(RF_MASK_V_SET(BIT(6)), usbphy->moon4_regs + ctl2_off);
+	writel(MOON_REG_SET(UPHY_CTL2_RX_CLK_SEL_BIT), usbphy->moon4_regs + ctl2_off);
 
-	/* 7. Host mode: clear USB_CTRL bit so OTG hardware routes to EHCI.
-	 * Port 0 clears bit 4 (USB0_CTRL); port 1 clears bits 13:12 (USB1_SEL+CTRL).
+	/* 7. Host mode: clear OTG control bits so hardware routes to EHCI.
 	 * Matches the state left by the 5.10 OTG driver after it deregisters SW control. */
 	if (usbphy->uphy_index == 0)
-		writel(RF_MASK_V_CLR(BIT(4)), usbphy->moon4_regs + USBC_CTL_OFFSET);
+		writel(MOON_REG_CLR(USBC_CTL_USBC0_OTG_CTRL_BIT), usbphy->moon4_regs + USBC_CTL_OFFSET);
 	else
-		writel(RF_MASK_V_CLR(3 << 12), usbphy->moon4_regs + USBC_CTL_OFFSET);
+		writel(MOON_REG_WRITE(BIT(USBC_CTL_USBC1_OTG_SEL_BIT) | BIT(USBC_CTL_USBC1_OTG_CTRL_BIT), 0),
+			usbphy->moon4_regs + USBC_CTL_OFFSET);
 
 	/* 8. AC & ACB charge current settings */
-	writel(RF_MASK_V_SET(BIT(11)), usbphy->moon4_regs + ctl3_off);
-	writel(RF_MASK_V_SET(BIT(14)), usbphy->moon4_regs + ctl3_off);
+	writel(MOON_REG_SET(UPHY_CTL3_ACB_DEFAULT_BIT), usbphy->moon4_regs + ctl3_off);
+	writel(MOON_REG_SET(UPHY_CTL3_AC_DEFAULT_BIT), usbphy->moon4_regs + ctl3_off);
 
 	/* 9. Additional PHY internal signal settings */
 	writel(0x19, usbphy->phy_regs + CDP_REG_OFFSET);
