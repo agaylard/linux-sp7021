@@ -226,7 +226,7 @@ static void iop_pmc_setup(void __iomem *iopbase, void __iomem *pmcbase)
 	 * CPU clocks and causing RCU stalls. Use individual bit masks to only
 	 * SET bits 7, 2, 0 without touching other bits.
 	 */
-	writel(MOON_REG_WRITE(BIT(7)|BIT(2)|BIT(0), BIT(7)|BIT(2)|BIT(0)), MOON1_CLKEN0);
+	writel(MOON_REG_FIELD_SET(BIT(7)|BIT(2)|BIT(0)), MOON1_CLKEN0);
 	writel(MOON_REG_SET(11), MOON1_CLKEN1);
 
 	/* Disable watchdog-event reset (bit 9 = 1) */

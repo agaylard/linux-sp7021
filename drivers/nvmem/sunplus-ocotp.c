@@ -226,4 +226,3 @@ module_platform_driver(sp_otp_driver);
 MODULE_AUTHOR("Vincent Shih <vincent.sunplus@gmail.com>");
 MODULE_DESCRIPTION("Sunplus On-Chip OTP driver");
 MODULE_LICENSE("GPL");
-

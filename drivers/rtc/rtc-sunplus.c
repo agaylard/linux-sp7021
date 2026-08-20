@@ -214,7 +214,7 @@ static void sp_rtc_set_trickle_charger(struct device dev)
 		return;
 	}
 
-	writel(MOON_REG_WRITE(BAT_CHARGE_EN, BAT_CHARGE_EN), sp_rtc->reg_base + RTC_BATT_CHARGE_CTRL);
+	writel(MOON_REG_FIELD_SET(BAT_CHARGE_EN), sp_rtc->reg_base + RTC_BATT_CHARGE_CTRL);
 }
 
 static int sp_rtc_probe(struct platform_device *plat_dev)
@@ -282,7 +282,7 @@ static int sp_rtc_probe(struct platform_device *plat_dev)
 		sp_rtc_set_trickle_charger(plat_dev->dev);
 
 	/* Keep RTC from system reset */
-	writel(MOON_REG_WRITE(DIS_SYS_RST_RTC, DIS_SYS_RST_RTC), sp_rtc->reg_base + RTC_CTRL);
+	writel(MOON_REG_FIELD_SET(DIS_SYS_RST_RTC), sp_rtc->reg_base + RTC_CTRL);
 
 	return 0;
 
@@ -347,4 +347,3 @@ module_platform_driver(sp_rtc_driver);
 MODULE_AUTHOR("Vincent Shih <vincent.sunplus@gmail.com>");
 MODULE_DESCRIPTION("Sunplus RTC driver");
 MODULE_LICENSE("GPL v2");
-

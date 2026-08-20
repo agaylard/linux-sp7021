@@ -191,7 +191,7 @@ static int sp_wdt_probe(struct platform_device *pdev)
 
 		if (IS_ERR(misc_ctl))
 			return PTR_ERR(misc_ctl);
-		writel(MOON_REG_WRITE(WDT_MISC_CTL_RST_EN, WDT_MISC_CTL_RST_EN), misc_ctl);
+		writel(MOON_REG_FIELD_SET(WDT_MISC_CTL_RST_EN), misc_ctl);
 	}
 
 	priv->wdev.info = &sp_wdt_info;
