@@ -47,10 +47,17 @@ static unsigned int RECEIVE_CODE_SIZE;
 static unsigned char NormalCode[NORMAL_CODE_MAX_SIZE];
 static unsigned char StandbyCode[STANDBY_CODE_MAX_SIZE];
 
-#define MOON0_CLKEN0	((void __iomem *)(B_REG_MOON0 + 4))
-#define MOON0_RESET0	((void __iomem *)(B_REG_MOON0 + 4 * 21))
-#define MOON1_CLKEN0	((void __iomem *)(B_REG_MOON1 + 4))
-#define MOON1_CLKEN1	((void __iomem *)(B_REG_MOON1 + 8))
+/* G0.1  mo_clken0  — Clock Enable Register #0 (0x9C000004) */
+#define MOON0_CLKEN0		((void __iomem *)(B_REG_MOON0 + 4))
+#define  CLKEN0_IOP_BIT		4
+
+/* G0.21 mo_reset0  — Hardware Reset Control Register #0 (0x9C000054) */
+#define MOON0_RESET0		((void __iomem *)(B_REG_MOON0 + 4 * 21))
+#define  RESET0_IOP_BIT		4
+
+/* G1.1/G1.2 — Group 1 software-configure registers used by IOP */
+#define MOON1_CLKEN0		((void __iomem *)(B_REG_MOON1 + 4))
+#define MOON1_CLKEN1		((void __iomem *)(B_REG_MOON1 + 8))
 
 #define IOP_READY	0x4
 #define RISC_READY	0x8
@@ -98,8 +105,7 @@ static void iop_load_and_start(void __iomem *iopbase,
 	outer_flush_range(phys, phys + size);           /* L2 (outer) → PoC */
 	memunmap(sram);
 
-	/* Enable IOP clock: MOON0 CLKEN[0] bit 4 (Moon register format) */
-	writel(MOON_REG_SET(4), MOON0_CLKEN0);
+	writel(MOON_REG_SET(CLKEN0_IOP_BIT), MOON0_CLKEN0);
 
 	/* Assert IOP reset (bit 0 = 1), clear boot-ROM select (bit 15 = 0) */
 	reg = readl(&r->iop_control);
@@ -190,7 +196,7 @@ static void iop_pmc_setup(void __iomem *iopbase, void __iomem *pmcbase)
 	struct regs_iop_pmc_t *pmc = (struct regs_iop_pmc_t *)pmcbase;
 	u32 reg;
 
-	writel(MOON_REG_SET(4), MOON0_CLKEN0);
+	writel(MOON_REG_SET(CLKEN0_IOP_BIT), MOON0_CLKEN0);
 
 	/* Assert reset (bit 0=1), clear boot-ROM (bit 15=0) */
 	reg = readl(&r->iop_control);
@@ -210,9 +216,9 @@ static void iop_pmc_setup(void __iomem *iopbase, void __iomem *pmcbase)
 	writel(0x5500aaff, &pmc->CLK27M_PASSWORD_II);
 	writel(0x01000100, &pmc->PMC_TIMER2);
 
-	/* IOP hardware IP reset pulse (Moon register bit 4) */
-	writel(MOON_REG_SET(4), MOON0_RESET0);
-	writel(MOON_REG_CLR(4), MOON0_RESET0);
+	/* Send reset pulse to IOP */
+	writel(MOON_REG_SET(RESET0_IOP_BIT), MOON0_RESET0);
+	writel(MOON_REG_CLR(RESET0_IOP_BIT), MOON0_RESET0);
 
 	/*
 	 * Enable IOP clocks in MOON1. The original write 0x00ff0085 used a
