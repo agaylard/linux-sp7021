@@ -550,26 +550,34 @@ static int spmmc_check_error(struct spmmc_host *host, struct mmc_request *mrq)
 
 		if (value & SPMMC_SDSTATUS_RSP_TIMEOUT) {
 			ret = -ETIMEDOUT;
-			host->tuning_info.wr_cmd_dly++;
+			if (!++host->tuning_info.wr_cmd_dly)
+				cmd->retries = 0;
 		} else if (value & SPMMC_SDSTATUS_RSP_CRC7_ERROR) {
 			ret = -EILSEQ;
-			host->tuning_info.rd_rsp_dly++;
+			if (!++host->tuning_info.rd_rsp_dly)
+				cmd->retries = 0;
 		} else if (data) {
 			if ((value & SPMMC_SDSTATUS_STB_TIMEOUT)) {
 				ret = -ETIMEDOUT;
-				host->tuning_info.rd_dat_dly++;
+				if (!++host->tuning_info.rd_dat_dly)
+					cmd->retries = 0;
 			} else if (value & SPMMC_SDSTATUS_RDATA_CRC16_ERROR) {
 				ret = -EILSEQ;
-				host->tuning_info.rd_dat_dly++;
+				if (!++host->tuning_info.rd_dat_dly)
+					cmd->retries = 0;
 			} else if (value & SPMMC_SDSTATUS_CARD_CRC_CHECK_TIMEOUT) {
 				ret = -ETIMEDOUT;
-				host->tuning_info.rd_crc_dly++;
+				if (!++host->tuning_info.rd_crc_dly)
+					cmd->retries = 0;
 			} else if (value & SPMMC_SDSTATUS_CRC_TOKEN_CHECK_ERROR) {
 				ret = -EILSEQ;
-				if (crc_token == 0x5)
-					host->tuning_info.wr_dat_dly++;
-				else
-					host->tuning_info.rd_crc_dly++;
+				if (crc_token == 0x5) {
+					if (!++host->tuning_info.wr_dat_dly)
+						cmd->retries = 0;
+				} else {
+					if (!++host->tuning_info.rd_crc_dly)
+						cmd->retries = 0;
+				}
 			}
 		}
 		cmd->error = ret;
