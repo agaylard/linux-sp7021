@@ -143,7 +143,7 @@
 #define SPMMC_SD_RSPBUF0_3_REG		0x00CC
 #define SPMMC_SD_RSPBUF4_5_REG		0x00D0
 
-#define SPMMC_MAX_RETRIES (8 * 8)
+#define SPMMC_MAX_RETRIES 16
 
 struct spmmc_tuning_info {
 	int enable_tuning;
@@ -268,9 +268,11 @@ static void spmmc_set_bus_timing(struct spmmc_host *host, unsigned int timing)
 		break;
 	case MMC_TIMING_UHS_DDR50:
 		ddr_enabled = 1;
+		hs_en = 1;
 		break;
 	case MMC_TIMING_MMC_DDR52:
 		ddr_enabled = 1;
+		hs_en = 1;
 		break;
 	default:
 		hs_en = 0;
@@ -677,6 +679,7 @@ static void spmmc_controller_init(struct spmmc_host *host)
 	value &= ~SPMMC_MEDIA_TYPE;
 	value |= FIELD_PREP(SPMMC_MEDIA_TYPE, SPMMC_MEDIA_SD);
 	writel(value, host->base + SPMMC_CARD_MEDIATYPE_SRCDST_REG);
+
 }
 
 /*
