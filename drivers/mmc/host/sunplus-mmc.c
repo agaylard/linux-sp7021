@@ -173,6 +173,19 @@ struct spmmc_host {
 	int dma_use_int;
 };
 
+/*
+ * Increment a 3-bit tuning delay field. If already at maximum, don't
+ * increment, but instead set retries to 0 to inform the caller.
+ */
+static inline u32 spmmc_tuning_inc(u32 field, int *retries)
+{
+	if (field == SPMMC_MAX_TUNABLE_DLY)
+		*retries = 0;
+	else
+		field++;
+	return field;
+}
+
 static inline int spmmc_wait_finish(struct spmmc_host *host)
 {
 	u32 state;
@@ -550,26 +563,26 @@ static int spmmc_check_error(struct spmmc_host *host, struct mmc_request *mrq)
 
 		if (value & SPMMC_SDSTATUS_RSP_TIMEOUT) {
 			ret = -ETIMEDOUT;
-			host->tuning_info.wr_cmd_dly++;
+			host->tuning_info.wr_cmd_dly = spmmc_tuning_inc(host->tuning_info.wr_cmd_dly, &cmd->retries);
 		} else if (value & SPMMC_SDSTATUS_RSP_CRC7_ERROR) {
 			ret = -EILSEQ;
-			host->tuning_info.rd_rsp_dly++;
+			host->tuning_info.rd_rsp_dly = spmmc_tuning_inc(host->tuning_info.rd_rsp_dly, &cmd->retries);
 		} else if (data) {
 			if ((value & SPMMC_SDSTATUS_STB_TIMEOUT)) {
 				ret = -ETIMEDOUT;
-				host->tuning_info.rd_dat_dly++;
+				host->tuning_info.rd_dat_dly = spmmc_tuning_inc(host->tuning_info.rd_dat_dly, &cmd->retries);
 			} else if (value & SPMMC_SDSTATUS_RDATA_CRC16_ERROR) {
 				ret = -EILSEQ;
-				host->tuning_info.rd_dat_dly++;
+				host->tuning_info.rd_dat_dly = spmmc_tuning_inc(host->tuning_info.rd_dat_dly, &cmd->retries);
 			} else if (value & SPMMC_SDSTATUS_CARD_CRC_CHECK_TIMEOUT) {
 				ret = -ETIMEDOUT;
-				host->tuning_info.rd_crc_dly++;
+				host->tuning_info.rd_crc_dly = spmmc_tuning_inc(host->tuning_info.rd_crc_dly, &cmd->retries);
 			} else if (value & SPMMC_SDSTATUS_CRC_TOKEN_CHECK_ERROR) {
 				ret = -EILSEQ;
 				if (crc_token == 0x5)
-					host->tuning_info.wr_dat_dly++;
+					host->tuning_info.wr_dat_dly = spmmc_tuning_inc(host->tuning_info.wr_dat_dly, &cmd->retries);
 				else
-					host->tuning_info.rd_crc_dly++;
+					host->tuning_info.rd_crc_dly = spmmc_tuning_inc(host->tuning_info.rd_crc_dly, &cmd->retries);
 			}
 		}
 		cmd->error = ret;
